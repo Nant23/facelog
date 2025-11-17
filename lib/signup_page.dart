@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:facelog/student_home.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -12,6 +15,59 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<void> signUp() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    final confirmPass = confirmPasswordController.text.trim();
+    final name = nameController.text.trim();
+
+    // Basic Validation
+    if (email.isEmpty || password.isEmpty || confirmPass.isEmpty || name.isEmpty) {
+      showSnack("Please fill all fields");
+      return;
+    }
+
+    if (password != confirmPass) {
+      showSnack("Passwords do not match");
+      return;
+    }
+
+    try {
+      // Create user with email & password
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Get UID of newly created user
+      final uid = userCredential.user!.uid;
+
+      // Save user data in Firestore
+      await FirebaseFirestore.instance.collection("users").doc(uid).set({
+        "name": name,
+        "email": email,
+        "createdAt": DateTime.now(),
+      });
+
+      showSnack("Account created successfully!");
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const StudentHome()),
+      );
+    } on FirebaseAuthException catch (e) {
+      showSnack(e.message ?? "Signup failed");
+    }
+  }
+
+
+  void showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +90,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              // Name TextField
+
               TextField(
                 controller: nameController,
                 decoration: InputDecoration(
@@ -49,10 +105,10 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Email TextField
+
               TextField(
-                keyboardType: TextInputType.emailAddress,
                 controller: emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.white,
@@ -65,7 +121,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Password TextField
+
               TextField(
                 controller: passwordController,
                 obscureText: true,
@@ -81,7 +137,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Confirm Password TextField
+
               TextField(
                 controller: confirmPasswordController,
                 obscureText: true,
@@ -96,12 +152,11 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 30),
-              // Sign Up Button
+
               ElevatedButton(
-                onPressed: () {
-                  // Add sign up logic here
-                },
+                onPressed: signUp,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -113,12 +168,11 @@ class _SignUpPageState extends State<SignUpPage> {
                   style: TextStyle(fontSize: 18),
                 ),
               ),
+
               const SizedBox(height: 20),
+
               TextButton(
-                onPressed: () {
-                  // Navigate back to Login page
-                  Navigator.pop(context);
-                },
+                onPressed: () => Navigator.pop(context),
                 child: const Text("Already have an account? Login"),
               ),
             ],

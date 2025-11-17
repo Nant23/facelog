@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "668759767042",
+    "project_id": "face-log-fb54d",
+    "storage_bucket": "face-log-fb54d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668759767042:android:584a66f562bf8eeffa8f1b",
+        "android_client_info": {
+          "package_name": "com.example.facelog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlAQ2BzzI3sAkzg_wTwR-HGgMeIJ6gKKM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

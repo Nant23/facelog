@@ -1,5 +1,9 @@
 import 'package:facelog/signup_page.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:facelog/student_home.dart';
+
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,6 +15,43 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+ 
+
+
+  Future<void> login() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      showSnack("Please fill all fields");
+      return;
+    }
+
+    try {
+      await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      showSnack("Login successful!");
+
+      Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (_) => const StudentHome()),
+  );
+
+    } on FirebaseAuthException catch (e) {
+      showSnack(e.message ?? "Login failed");
+    }
+  }
+
+  void showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +74,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              // Email TextField
+
+              // Email input
               TextField(
                 keyboardType: TextInputType.emailAddress,
                 controller: emailController,
@@ -49,7 +91,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Password TextField
+
+              // Password input
               TextField(
                 controller: passwordController,
                 obscureText: true,
@@ -64,12 +107,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 30),
-              // Login Button
+
+              // LOGIN BUTTON
               ElevatedButton(
-                onPressed: () {
-                  // Add login logic here
-                },
+                onPressed: login,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -81,14 +124,16 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(fontSize: 18),
                 ),
               ),
+
               const SizedBox(height: 20),
+
+              // SIGNUP BUTTON
               TextButton(
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => SignUpPage())
+                    MaterialPageRoute(builder: (context) => const SignUpPage()),
                   );
-                  // Navigate to forgot password or signup
                 },
                 child: const Text("Don't have an account? Sign up"),
               ),

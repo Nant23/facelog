@@ -154,18 +154,6 @@ class _StudentHomeState extends State<StudentHome> {
         ),
       ),
 
-      // ------------ BOTTOM NAVIGATION BAR ------------
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.class_), label: "Classes"),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: "History"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
-      ),
     );
   }
 
@@ -243,7 +231,7 @@ class _attBlock extends StatelessWidget {
   final String title;
   final String value;
 
-  const _attBlock(this.title, this.value, {super.key});
+  const _attBlock(this.title, this.value);
 
   @override
   Widget build(BuildContext context) {

@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:facelog/signup_page.dart';
+import 'package:facelog/student/student_main_page.dart';
+import 'package:facelog/teacher/teacher_main_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:facelog/student_home.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'teacher_home.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -80,12 +80,12 @@ class _LoginPageState extends State<LoginPage> {
       if (role == "student") {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const StudentHome()),
+          MaterialPageRoute(builder: (_) => const StudentMainPage()),
         );
       } else if (role == "teacher") {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const TeacherDashboardPage()),
+          MaterialPageRoute(builder: (_) => const TeacherMainPage()),
         );
       } else {
         showSnack("Invalid user role");

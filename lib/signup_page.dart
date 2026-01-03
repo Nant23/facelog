@@ -1,7 +1,7 @@
+import 'package:facelog/student/student_profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:facelog/student_home.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -67,7 +67,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const StudentHome()),
+        MaterialPageRoute(builder: (_) => const StudentProfilePage()),
       );
     } on FirebaseAuthException catch (e) {
       showSnack(e.message ?? "Signup failed");

@@ -105,16 +105,6 @@ class TeacherDashboardPage extends StatelessWidget {
       ),
 
       // -------------------------- Bottom Navigation --------------------------
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.black54,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.class_), label: "Classes"),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Reports"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
-      ),
     );
   }
 

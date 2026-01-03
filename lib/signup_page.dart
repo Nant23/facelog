@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:facelog/student_home.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -24,7 +25,6 @@ class _SignUpPageState extends State<SignUpPage> {
     final confirmPass = confirmPasswordController.text.trim();
     final name = nameController.text.trim();
 
-    // Basic Validation
     if (email.isEmpty || password.isEmpty || confirmPass.isEmpty || name.isEmpty) {
       showSnack("Please fill all fields");
       return;
@@ -36,23 +36,35 @@ class _SignUpPageState extends State<SignUpPage> {
     }
 
     try {
-      // Create user with email & password
+      // ------------------------------
+      // CREATE USER (AUTH)
+      // ------------------------------
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Get UID of newly created user
       final uid = userCredential.user!.uid;
 
-      // Save user data in Firestore
+      // ------------------------------
+      // GET FCM TOKEN
+      // ------------------------------
+      String? token = await FirebaseMessaging.instance.getToken();
+      print("📱 FCM Token (Signup): $token");
+
+      // ------------------------------
+      // SAVE USER DATA + TOKEN
+      // ------------------------------
       await FirebaseFirestore.instance.collection("users").doc(uid).set({
         "name": name,
         "email": email,
-        "createdAt": DateTime.now(),
+        "role": "student",
+        "createdAt": DateTime.now(), 
+        "fcmToken": token,  // save token here
       });
 
       showSnack("Account created successfully!");
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const StudentHome()),
@@ -61,7 +73,6 @@ class _SignUpPageState extends State<SignUpPage> {
       showSnack(e.message ?? "Signup failed");
     }
   }
-
 
   void showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

@@ -1,9 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:facelog/signup_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:facelog/student_home.dart';
-
-
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'teacher_home.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,8 +18,6 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
- 
-
 
   Future<void> login() async {
     final email = emailController.text.trim();
@@ -30,22 +29,72 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      await _auth.signInWithEmailAndPassword(
+      // ---------------------------
+      // USER LOGIN
+      // ---------------------------
+      UserCredential cred = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
+      User? user = cred.user;
+
+      if (user == null) {
+        showSnack("Login failed");
+        return;
+      }
+
+      // ---------------------------
+      // GET FCM TOKEN
+      // ---------------------------
+      String? token = await FirebaseMessaging.instance.getToken();
+      print("📱 FCM Token (Login): $token");
+
+      if (token != null) {
+        await FirebaseFirestore.instance
+            .collection("users")
+            .doc(user.uid)
+            .update({"fcmToken": token});
+      }
+
+      // ---------------------------
+      // GET USER ROLE
+      // ---------------------------
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        showSnack("User data not found");
+        return;
+      }
+
+      String role = userDoc.get("role");
+
       showSnack("Login successful!");
 
-      Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => const StudentHome()),
-  );
-
+      // ---------------------------
+      // ROLE BASED NAVIGATION
+      // ---------------------------
+      if (role == "student") {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const StudentHome()),
+        );
+      } else if (role == "teacher") {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const TeacherDashboardPage()),
+        );
+      } else {
+        showSnack("Invalid user role");
+      }
     } on FirebaseAuthException catch (e) {
       showSnack(e.message ?? "Login failed");
     }
   }
+
 
   void showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -127,7 +176,7 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 20),
 
-              // SIGNUP BUTTON
+              // SIGNUP
               TextButton(
                 onPressed: () {
                   Navigator.push(

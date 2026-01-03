@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class StudentHome extends StatefulWidget {
   const StudentHome({super.key});
 
@@ -12,111 +11,95 @@ class _StudentHomeState extends State<StudentHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xfff4f6ff),
+
+      // ------------ APP BAR ------------
       appBar: AppBar(
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          "Student Dashboard",
-          style: TextStyle(color: Colors.white),
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 16),
+          child: Icon(Icons.calendar_month, color: Colors.blue, size: 30),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              // TODO: add logout
-            },
+        title: const Text(
+          "Facelog",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
           ),
+        ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Icon(Icons.notifications_none, color: Colors.black),
+          )
         ],
       ),
 
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Profile Section
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.blue,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 40, color: Colors.blue),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          "Welcome, Student!",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 5),
-                        Text(
-                          "ID: 2024-00123",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+
+            const SizedBox(height: 10),
+
+            const Text(
+              "Hi, Student!",
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 6),
 
-            // Attendance Summary Card
+            const Text(
+              "Track your attendance and stay updated",
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ------------ ATTENDANCE CARD ------------
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.shade300,
-                    blurRadius: 10,
-                    offset: const Offset(2, 4),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [Color(0xff5271ff), Color(0xff675fff)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    "Today's Attendance",
+                children: [
+                  const Text(
+                    "Overall Attendance",
                     style: TextStyle(
-                      fontSize: 18, 
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "90%",
+                    style: TextStyle(
+                      fontSize: 48,
+                      height: 1,
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 16),
+
                   Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Colors.green, size: 28),
-                      SizedBox(width: 10),
-                      Text(
-                        "Present",
-                        style: TextStyle(
-                          fontSize: 18, 
-                          color: Colors.green,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: const [
+                      _attBlock("Present", "112"),
+                      _attBlock("Absent", "13"),
+                      _attBlock("Total", "125"),
                     ],
                   ),
                 ],
@@ -125,105 +108,163 @@ class _StudentHomeState extends State<StudentHome> {
 
             const SizedBox(height: 25),
 
-            // Quick Actions Title
+            // ------------ TODAY'S CLASSES ------------
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text(
+                  "Today's Classes",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Icon(Icons.calendar_today, size: 20),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+
+            _classTile(
+              title: "Mathematics 101",
+              subtitle: "Room 204",
+              time: "9:00 AM",
+            ),
+
+            const SizedBox(height: 12),
+
+            _classTile(
+              title: "Chemistry Lab",
+              subtitle: "Lab 3",
+              time: "2:00 PM",
+            ),
+
+            const SizedBox(height: 25),
+
             const Text(
-              "Quick Actions",
+              "My Attendance",
               style: TextStyle(
-                fontSize: 20, 
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 15),
 
-            // Action Buttons Grid
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _actionCard(
-                  icon: Icons.camera_alt,
-                  title: "Mark Attendance",
-                  color: Colors.green,
-                  onTap: () {
-                    // TODO: open camera
-                  },
-                ),
-                _actionCard(
-                  icon: Icons.history,
-                  title: "Attendance History",
-                  color: Colors.blue,
-                  onTap: () {
-                    // TODO: navigate
-                  },
-                ),
-                _actionCard(
-                  icon: Icons.person,
-                  title: "Profile",
-                  color: Colors.orange,
-                  onTap: () {
-                    // TODO: navigate
-                  },
-                ),
-                _actionCard(
-                  icon: Icons.info,
-                  title: "About App",
-                  color: Colors.purple,
-                  onTap: () {},
-                ),
-              ],
-            ),
+            const SizedBox(height: 20),
           ],
         ),
+      ),
+
+      // ------------ BOTTOM NAVIGATION BAR ------------
+      bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.class_), label: "Classes"),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: "History"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        ],
       ),
     );
   }
 
-  // Action Card Widget
-  Widget _actionCard({
-    required IconData icon,
+  // ------------ CLASS LIST TILE ------------
+  Widget _classTile({
     required String title,
-    required Color color,
-    required Function() onTap,
+    required String subtitle,
+    required String time,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade300,
-              blurRadius: 8,
-              offset: const Offset(2, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: color.withOpacity(0.2),
-              child: Icon(icon, size: 32, color: color),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16, 
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          )
+        ],
       ),
+      child: Row(
+        children: [
+          Container(
+            height: 50,
+            width: 50,
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.menu_book, color: Colors.blue, size: 28),
+          ),
+          const SizedBox(width: 16),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------ SMALL BOX (Present/Absent/Total) ------------
+class _attBlock extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _attBlock(this.title, this.value, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+      ],
     );
   }
 }

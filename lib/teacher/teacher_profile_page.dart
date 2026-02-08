@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'teacher_leave_requests_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../login_page.dart';
 
 class TeacherProfilePage extends StatelessWidget {
   const TeacherProfilePage({super.key});
@@ -159,15 +161,27 @@ class TeacherProfilePage extends StatelessWidget {
           _actionTile(
             icon: Icons.notifications_none,
             label: "Notifications",
-            onTap: () {},
+            onTap: () {}, 
           ),
           const Divider(),
           _actionTile(
             icon: Icons.logout,
             label: "Logout",
             color: Colors.red,
-            onTap: () {
-              // TODO: Firebase logout
+            onTap: () async{
+              try {
+                await FirebaseAuth.instance.signOut(); // Sign out the user
+                // Navigate to login page and remove all previous routes
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginPage()), 
+                  (route) => false,
+                );
+              } catch (e) {
+                // Show error if logout fails
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Logout failed: $e")),
+                );
+              }
             },
           ),
         ],

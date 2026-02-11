@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'teacher_manual_attendance_page.dart';
 
 class TeacherClassesPage extends StatelessWidget {
@@ -27,47 +29,69 @@ class TeacherClassesPage extends StatelessWidget {
         ],
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Column(
-          children: [
-            _classCard(
-              context: context,
-              className: "Mathematics 101",
-              classCode: "MATH101",
-              students: 32,
-              schedule: "Mon, Wed, Fri • 9:00 AM",
-              attendance: "85%",
-            ),
-            const SizedBox(height: 16),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('classes')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            _classCard(
-              context: context,
-              className: "Chemistry Lab",
-              classCode: "CHEM201",
-              students: 24,
-              schedule: "Tue, Thu • 2:00 PM",
-              attendance: "78%",
-            ),
-            const SizedBox(height: 16),
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("No classes found"));
+          }
 
-            _classCard(
-              context: context,
-              className: "Physics",
-              classCode: "PHY110",
-              students: 40,
-              schedule: "Mon–Fri • 11:00 AM",
-              attendance: "90%",
-            ),
-          ],
-        ),
+          final classes = snapshot.data!.docs;
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            itemCount: classes.length,
+            itemBuilder: (context, index) {
+              final data = classes[index].data() as Map<String, dynamic>;
+
+              final DateTime dateTime =
+                  (data['date'] as Timestamp).toDate();
+
+              final formattedDate =
+                  DateFormat('EEE, MMM d • h:mm a').format(dateTime);
+
+              final String subjectId = data['subject'];
+              final String locationId = data['location'];
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: FutureBuilder<List<String>>(
+                  future: Future.wait([
+                    getSubjectName(subjectId),
+                    getLocationName(locationId),
+                  ]),
+                  builder: (context, snapshot) {
+                    final subjectName =
+                        snapshot.data?[0] ?? subjectId;
+                    final locationName =
+                        snapshot.data?[1] ?? locationId;
+
+                    return _classCard(
+                      context: context,
+                      className: subjectName,
+                      classCode: data['groupid'],
+                      students: 0,
+                      schedule: formattedDate,
+                      location: locationName,
+                      attendance: "85%",
+                    );
+                  },
+                ),
+              );
+            },
+          );
+        },
       ),
 
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF478AFF),
-        onPressed: () {
-          // TODO: Add create class action
-        },
+        onPressed: () {},
         child: const Icon(Icons.add),
       ),
     );
@@ -82,6 +106,7 @@ class TeacherClassesPage extends StatelessWidget {
     required String classCode,
     required int students,
     required String schedule,
+    required String location,
     required String attendance,
   }) {
     return GestureDetector(
@@ -123,30 +148,30 @@ class TeacherClassesPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                CircleAvatar(
+                const CircleAvatar(
                   radius: 18,
-                  backgroundColor: const Color(0xFF478AFF),
-                  child: const Icon(Icons.arrow_forward_ios,
+                  backgroundColor: Color(0xFF478AFF),
+                  child: Icon(Icons.arrow_forward_ios,
                       size: 16, color: Colors.white),
                 ),
               ],
             ),
-      
+
             const SizedBox(height: 4),
             Text(classCode, style: const TextStyle(color: Colors.black54)),
-      
+
             const SizedBox(height: 14),
-      
+
             Row(
-              children: [
-                const Icon(Icons.group, size: 20, color: Colors.black54),
-                const SizedBox(width: 8),
-                Text("$students students"),
+              children: const [
+                Icon(Icons.group, size: 20, color: Colors.black54),
+                SizedBox(width: 8),
+                Text("Students TBD"),
               ],
             ),
-      
+
             const SizedBox(height: 8),
-      
+
             Row(
               children: [
                 const Icon(Icons.schedule, size: 20, color: Colors.black54),
@@ -154,9 +179,20 @@ class TeacherClassesPage extends StatelessWidget {
                 Text(schedule),
               ],
             ),
-      
+
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                const Icon(Icons.location_on,
+                    size: 20, color: Colors.black54),
+                const SizedBox(width: 8),
+                Text(location),
+              ],
+            ),
+
             const SizedBox(height: 14),
-      
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -179,4 +215,27 @@ class TeacherClassesPage extends StatelessWidget {
       ),
     );
   }
+}
+
+// --------------------------------------------------------------
+// Firestore helpers
+// --------------------------------------------------------------
+Future<String> getSubjectName(String subjectId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('subjects')
+      .doc(subjectId)
+      .get();
+
+  if (!doc.exists) return subjectId;
+  return doc['name'];
+}
+
+Future<String> getLocationName(String locationId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('locations')
+      .doc(locationId)
+      .get();
+
+  if (!doc.exists) return locationId;
+  return doc['name'];
 }

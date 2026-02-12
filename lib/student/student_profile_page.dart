@@ -1,6 +1,9 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../login_page.dart'; // <-- Import your login page here
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../login_page.dart';
 
 class StudentProfilePage extends StatefulWidget {
   const StudentProfilePage({super.key});
@@ -10,14 +13,71 @@ class StudentProfilePage extends StatefulWidget {
 }
 
 class _StudentProfilePageState extends State<StudentProfilePage> {
-  String studentName = "John Doe";
-  String studentEmail = "john.doe@example.com";
-  String studentClass = "Mathematics 101";
-
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  String studentName = "";
+  String studentEmail = "";
+  String studentClass = "";
+
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStudentData();
+  }
+
+  Future<void> _loadStudentData() async {
+    try {
+      print("USER: ${_auth.currentUser}");
+      print("UID: ${_auth.currentUser?.uid}");
+
+      final user = _auth.currentUser;
+
+      if (user == null) {
+        print("User is NULL");
+        setState(() => isLoading = false);
+        return;
+      }
+
+      // Fetch student document by UID
+      final doc = await _firestore.collection('students').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        setState(() {
+          studentName = data['name'] ?? "";
+          studentEmail = data['email'] ?? user.email ?? "";
+          studentClass = data['class'] ?? "";
+          isLoading = false;
+        });
+      } else {
+        // If no doc found
+        setState(() {
+          isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Student data not found.")),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading data: $e")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("My Profile"),
@@ -33,21 +93,21 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                 CircleAvatar(
                   radius: 60,
                   backgroundColor: Colors.grey.shade300,
-                  child: const Icon(Icons.person, size: 60, color: Colors.white),
+                  child:
+                      const Icon(Icons.person, size: 60, color: Colors.white),
                 ),
                 Positioned(
                   bottom: 0,
                   right: 4,
                   child: GestureDetector(
                     onTap: () {
-                      // Add code to pick image from gallery/camera
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text("Change Profile Picture")),
                       );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.blue,
                         shape: BoxShape.circle,
                       ),
@@ -72,10 +132,16 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               trailing: IconButton(
                 icon: const Icon(Icons.edit, color: Colors.grey),
                 onPressed: () {
-                  _editField("Name", studentName, (val) {
-                    setState(() {
-                      studentName = val;
-                    });
+                  _editField("Name", studentName, (val) async {
+                    setState(() => studentName = val);
+                    // Update in Firestore
+                    final user = _auth.currentUser;
+                    if (user != null) {
+                      await _firestore
+                          .collection('students')
+                          .doc(user.uid)
+                          .update({'name': val});
+                    }
                   });
                 },
               ),
@@ -107,8 +173,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               child: ElevatedButton(
                 onPressed: () async {
                   try {
-                    await _auth.signOut(); // Firebase logout
-                    // Navigate to login page and remove all previous routes
+                    await _auth.signOut();
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
@@ -138,7 +203,6 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     );
   }
 
-  // --------- EDIT FIELD DIALOG ---------
   void _editField(String field, String currentValue, Function(String) onSave) {
     final TextEditingController controller =
         TextEditingController(text: currentValue);

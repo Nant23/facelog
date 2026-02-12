@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 class StudentHome extends StatefulWidget {
   const StudentHome({super.key});
@@ -8,6 +11,8 @@ class StudentHome extends StatefulWidget {
 }
 
 class _StudentHomeState extends State<StudentHome> {
+
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,19 +130,7 @@ class _StudentHomeState extends State<StudentHome> {
 
             const SizedBox(height: 15),
 
-            _classTile(
-              title: "Mathematics 101",
-              subtitle: "Room 204",
-              time: "9:00 AM",
-            ),
-
-            const SizedBox(height: 12),
-
-            _classTile(
-              title: "Chemistry Lab",
-              subtitle: "Lab 3",
-              time: "2:00 PM",
-            ),
+            _todayClassesSection(),
 
             const SizedBox(height: 25),
 
@@ -153,7 +146,71 @@ class _StudentHomeState extends State<StudentHome> {
           ],
         ),
       ),
+    );
+  }
 
+  // ------------ FETCH AND SHOW TODAY'S CLASSES ------------
+  Widget _todayClassesSection() {
+    final String uid = FirebaseAuth.instance.currentUser!.uid;
+
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('students').doc(uid).get(),
+      builder: (context, studentSnapshot) {
+        if (!studentSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!studentSnapshot.data!.exists) {
+          return const Text("Student record not found");
+        }
+
+        String group = studentSnapshot.data!['group'];
+
+        DateTime now = DateTime.now();
+        DateTime startOfDay = DateTime(now.year, now.month, now.day);
+        DateTime endOfDay = startOfDay.add(const Duration(days: 1));
+
+        return StreamBuilder<QuerySnapshot>(
+          
+          stream: FirebaseFirestore.instance
+              .collection('classes')
+              .where('groupid', isEqualTo: group)
+              .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+              .where('date', isLessThan: Timestamp.fromDate(endOfDay))
+              .orderBy('date')
+              .snapshots(),
+          builder: (context, classSnapshot) {
+            if (!classSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (classSnapshot.data!.docs.isEmpty) {
+              return const Text("No classes today 🎉");
+            }
+
+            return Column(
+              children: classSnapshot.data!.docs.map((doc) {
+                List attendedList = doc['attended'] ?? [];
+                bool isAttended = attendedList.contains(uid);
+
+                Timestamp ts = doc['date'];
+                DateTime classTime = ts.toDate();
+                String formattedTime = DateFormat.jm().format(classTime);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _classTile(
+                    title: doc['subject'],
+                    subtitle: doc['location'],
+                    time: formattedTime,
+                    attended: isAttended,
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -162,6 +219,7 @@ class _StudentHomeState extends State<StudentHome> {
     required String title,
     required String subtitle,
     required String time,
+    required bool attended,
   }) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -182,10 +240,16 @@ class _StudentHomeState extends State<StudentHome> {
             height: 50,
             width: 50,
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: attended
+                  ? Colors.green.withOpacity(0.1)
+                  : Colors.blue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.menu_book, color: Colors.blue, size: 28),
+            child: Icon(
+              attended ? Icons.check_circle : Icons.menu_book,
+              color: attended ? Colors.green : Colors.blue,
+              size: 28,
+            ),
           ),
           const SizedBox(width: 16),
 
@@ -212,13 +276,26 @@ class _StudentHomeState extends State<StudentHome> {
             ),
           ),
 
-          Text(
-            time,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
+          Column(
+            children: [
+              Text(
+                time,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                attended ? "Attended" : "Pending",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: attended ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            ],
           ),
         ],
       ),

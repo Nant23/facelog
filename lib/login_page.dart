@@ -39,7 +39,6 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       User? user = cred.user;
-
       if (user == null) {
         showSnack("Login failed");
         return;
@@ -47,74 +46,78 @@ class _LoginPageState extends State<LoginPage> {
 
       // Get FCM token
       String? token = await FirebaseMessaging.instance.getToken();
-      if (token != null) {
-        await FirebaseFirestore.instance
-            .collection("users")
-            .doc(user.uid)
-            .update({"fcmToken": token});
-      }
+
+      // Safely create or update Firestore user document
+      DocumentReference userRef =
+          FirebaseFirestore.instance.collection("users").doc(user.uid);
+
+      await userRef.set({
+        "email": user.email,
+        "fcmToken": token,
+        "lastLogin": FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       // Get user role
-      DocumentSnapshot userDoc =
-          await FirebaseFirestore.instance.collection("users").doc(user.uid).get();
+      DocumentSnapshot userDoc = await userRef.get();
+      Map<String, dynamic> userData =
+          userDoc.data() as Map<String, dynamic>? ?? {};
 
-      if (!userDoc.exists) {
-        showSnack("User data not found");
-        return;
+      // Assign default role if missing
+      if (!userData.containsKey("role")) {
+        await userRef.set({"role": "student"}, SetOptions(merge: true));
+        userDoc = await userRef.get();
+        userData = userDoc.data() as Map<String, dynamic>? ?? {};
       }
 
-      String role = userDoc.get("role");
+      String role = userData["role"];
 
       showSnack("Login successful!");
-
       _navigateToRolePage(role);
     } on FirebaseAuthException catch (e) {
       showSnack(e.message ?? "Login failed");
+    } catch (e) {
+      showSnack("An error occurred: $e");
     }
   }
 
   // -----------------------------
-  // Google Sign-In
+  // Google Sign-In (unchanged)
   // -----------------------------
   Future<void> signInWithGoogle() async {
-  try {
-    final provider = GoogleAuthProvider();
+    try {
+      final provider = GoogleAuthProvider();
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithProvider(provider);
 
-    // Sign in with Firebase directly
-    UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithProvider(provider);
+      User? user = userCredential.user;
+      if (user == null) throw Exception("Google login failed");
 
-    User? user = userCredential.user;
-    if (user == null) throw Exception("Google login failed");
+      String? token = await FirebaseMessaging.instance.getToken();
 
-    // Get FCM token
-    String? token = await FirebaseMessaging.instance.getToken();
+      DocumentReference userRef =
+          FirebaseFirestore.instance.collection("users").doc(user.uid);
 
-    // Firestore user document
-    DocumentReference userRef =
-        FirebaseFirestore.instance.collection("users").doc(user.uid);
+      DocumentSnapshot userDoc = await userRef.get();
 
-    DocumentSnapshot userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        await userRef.set({
+          "email": user.email,
+          "role": "student",
+          "fcmToken": token,
+          "createdAt": FieldValue.serverTimestamp(),
+        });
+      } else {
+        await userRef.update({"fcmToken": token});
+      }
 
-    if (!userDoc.exists) {
-      await userRef.set({
-        "email": user.email,
-        "role": "student", // default role
-        "fcmToken": token,
-        "createdAt": FieldValue.serverTimestamp(),
-      });
-    } else {
-      await userRef.update({"fcmToken": token});
+      userDoc = await userRef.get();
+      String role = userDoc.get("role");
+
+      print("Google login successful, role: $role");
+    } catch (e) {
+      print("Google login error: $e");
     }
-
-    userDoc = await userRef.get();
-    String role = userDoc.get("role");
-
-    print("Google login successful, role: $role");
-  } catch (e) {
-    print("Google login error: $e");
   }
-}
 
   // -----------------------------
   // Navigate by Role

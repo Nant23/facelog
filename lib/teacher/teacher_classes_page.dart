@@ -29,11 +29,15 @@ class TeacherClassesPage extends StatelessWidget {
         ],
       ),
 
+      // ----------------------------------------------------
+      // Classes Stream
+      // ----------------------------------------------------
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('classes')
             .snapshots(),
         builder: (context, snapshot) {
+
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -48,7 +52,9 @@ class TeacherClassesPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             itemCount: classes.length,
             itemBuilder: (context, index) {
-              final data = classes[index].data() as Map<String, dynamic>;
+
+              final classDoc = classes[index];
+              final data = classDoc.data() as Map<String, dynamic>;
 
               final DateTime dateTime =
                   (data['date'] as Timestamp).toDate();
@@ -58,28 +64,36 @@ class TeacherClassesPage extends StatelessWidget {
 
               final String subjectId = data['subject'];
               final String locationId = data['location'];
+              final String groupId = data['groupid'];
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: FutureBuilder<List<String>>(
+                child: FutureBuilder<List<dynamic>>(
                   future: Future.wait([
                     getSubjectName(subjectId),
                     getLocationName(locationId),
+                    getNumberOfStudents(groupId),
                   ]),
                   builder: (context, snapshot) {
-                    final subjectName =
-                        snapshot.data?[0] ?? subjectId;
-                    final locationName =
-                        snapshot.data?[1] ?? locationId;
+
+                    if (!snapshot.hasData) {
+                      return const Center(
+                          child: CircularProgressIndicator());
+                    }
+
+                    final subjectName = snapshot.data![0] as String;
+                    final locationName = snapshot.data![1] as String;
+                    final studentsCount = snapshot.data![2] as int;
 
                     return _classCard(
                       context: context,
+                      classId: classDoc.id,
                       className: subjectName,
-                      classCode: data['groupid'],
-                      students: 0,
+                      classCode: groupId,
+                      students: studentsCount,
                       schedule: formattedDate,
                       location: locationName,
-                      attendance: "85%",
+                      attendance: "--%",
                     );
                   },
                 ),
@@ -88,20 +102,15 @@ class TeacherClassesPage extends StatelessWidget {
           );
         },
       ),
-
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF478AFF),
-        onPressed: () {},
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
-  // --------------------------------------------------------------
+  // ----------------------------------------------------
   // Class Card Widget
-  // --------------------------------------------------------------
+  // ----------------------------------------------------
   Widget _classCard({
     required BuildContext context,
+    required String classId,
     required String className,
     required String classCode,
     required int students,
@@ -117,6 +126,7 @@ class TeacherClassesPage extends StatelessWidget {
             builder: (_) => TeacherManualAttendancePage(
               className: className,
               classCode: classCode,
+              classId: classId,
             ),
           ),
         );
@@ -137,6 +147,8 @@ class TeacherClassesPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
+            // Title Row
             Row(
               children: [
                 Expanded(
@@ -158,23 +170,31 @@ class TeacherClassesPage extends StatelessWidget {
             ),
 
             const SizedBox(height: 4),
-            Text(classCode, style: const TextStyle(color: Colors.black54)),
+
+            Text(
+              classCode,
+              style: const TextStyle(color: Colors.black54),
+            ),
 
             const SizedBox(height: 14),
 
+            // Students
             Row(
-              children: const [
-                Icon(Icons.group, size: 20, color: Colors.black54),
-                SizedBox(width: 8),
-                Text("Students TBD"),
+              children: [
+                const Icon(Icons.group,
+                    size: 20, color: Colors.black54),
+                const SizedBox(width: 8),
+                Text("$students students"),
               ],
             ),
 
             const SizedBox(height: 8),
 
+            // Schedule
             Row(
               children: [
-                const Icon(Icons.schedule, size: 20, color: Colors.black54),
+                const Icon(Icons.schedule,
+                    size: 20, color: Colors.black54),
                 const SizedBox(width: 8),
                 Text(schedule),
               ],
@@ -182,6 +202,7 @@ class TeacherClassesPage extends StatelessWidget {
 
             const SizedBox(height: 8),
 
+            // Location
             Row(
               children: [
                 const Icon(Icons.location_on,
@@ -193,6 +214,7 @@ class TeacherClassesPage extends StatelessWidget {
 
             const SizedBox(height: 14),
 
+            // Attendance
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -217,9 +239,10 @@ class TeacherClassesPage extends StatelessWidget {
   }
 }
 
-// --------------------------------------------------------------
-// Firestore helpers
-// --------------------------------------------------------------
+// ----------------------------------------------------
+// Firestore Helpers
+// ----------------------------------------------------
+
 Future<String> getSubjectName(String subjectId) async {
   final doc = await FirebaseFirestore.instance
       .collection('subjects')
@@ -227,6 +250,7 @@ Future<String> getSubjectName(String subjectId) async {
       .get();
 
   if (!doc.exists) return subjectId;
+
   return doc['name'];
 }
 
@@ -237,5 +261,19 @@ Future<String> getLocationName(String locationId) async {
       .get();
 
   if (!doc.exists) return locationId;
+
   return doc['name'];
+}
+
+Future<int> getNumberOfStudents(String groupId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('groups')
+      .doc(groupId)
+      .get();
+
+  if (!doc.exists) return 0;
+
+  final students = doc['students'] as List<dynamic>?;
+
+  return students?.length ?? 0;
 }

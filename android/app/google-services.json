@@ -12,7 +12,20 @@
           "package_name": "com.example.facelog"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "668759767042-p1d9s5ie682ql3hg4hdelpafrl8g9i3e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.facelog",
+            "certificate_hash": "4628e786bca3c7962a94124b7787c8d7f552a684"
+          }
+        },
+        {
+          "client_id": "668759767042-us9c75tvapepmppdop3fj0nqhn6d70hv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAlAQ2BzzI3sAkzg_wTwR-HGgMeIJ6gKKM"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "668759767042-us9c75tvapepmppdop3fj0nqhn6d70hv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "668759767042-nh8dlrp1hjtmmokjtpnpjhrki2tid74q.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.facelog"
+              }
+            }
+          ]
         }
       }
     }

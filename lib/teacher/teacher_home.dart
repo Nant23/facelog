@@ -1,9 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'teacher_manual_attendance_page.dart';
 
 class TeacherDashboardPage extends StatelessWidget {
   const TeacherDashboardPage({super.key});
+
+  
+  Widget _scheduleTile(String title, String subtitle, String time) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600)),
+              Text(subtitle,
+                  style: const TextStyle(color: Colors.white70)),
+            ],
+          ),
+          const Spacer(),
+          Text(time,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,32 +49,17 @@ class TeacherDashboardPage extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
-            Text(
-              "Welcome Back!",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
+            Text("Welcome Back!",
+                style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22)),
             SizedBox(height: 4),
-            Text(
-              "Manage your classes and track attendance",
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 14,
-              ),
-            ),
+            Text("Manage your classes and track attendance",
+                style: TextStyle(color: Colors.black54, fontSize: 14)),
           ],
         ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: Icon(Icons.notifications_none, color: Colors.black),
-          )
-        ],
       ),
-
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('classes').snapshots(),
         builder: (context, snapshot) {
@@ -52,7 +69,6 @@ class TeacherDashboardPage extends StatelessWidget {
 
           final docs = snapshot.data!.docs;
 
-          // Filter today's classes
           final todaysClasses = docs.where((doc) {
             final date = (doc['date'] as Timestamp).toDate();
             return date.year == today.year &&
@@ -65,7 +81,8 @@ class TeacherDashboardPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ------------------------ Today's Schedule ------------------------
+
+                // ================= TODAY'S SCHEDULE =================
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
@@ -73,33 +90,21 @@ class TeacherDashboardPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     gradient: const LinearGradient(
                       colors: [Color(0xFF478AFF), Color(0xFF6A4BFF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
                     ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: const [
-                          Text(
-                            "Today's Schedule",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          Spacer(),
-                          Icon(Icons.calendar_month, color: Colors.white),
-                        ],
-                      ),
+                      const Text("Today's Schedule",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold)),
                       const SizedBox(height: 16),
 
                       if (todaysClasses.isEmpty)
-                        const Text(
-                          "No classes today",
-                          style: TextStyle(color: Colors.white70),
-                        ),
+                        const Text("No classes today",
+                            style: TextStyle(color: Colors.white70)),
 
                       ...todaysClasses.map((doc) {
                         final date =
@@ -116,12 +121,10 @@ class TeacherDashboardPage extends StatelessWidget {
                             if (!snap.hasData) return const SizedBox();
 
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
+                              padding:
+                                  const EdgeInsets.only(bottom: 12),
                               child: _scheduleTile(
-                                snap.data![0],
-                                snap.data![1],
-                                time,
-                              ),
+                                  snap.data![0], snap.data![1], time),
                             );
                           },
                         );
@@ -132,44 +135,32 @@ class TeacherDashboardPage extends StatelessWidget {
 
                 const SizedBox(height: 25),
 
-                // ------------------------- My Classes Title -------------------------
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      "My Classes",
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Color(0xFF478AFF),
-                      child: Icon(Icons.add, color: Colors.white),
-                    ),
-                  ],
-                ),
+                const Text("My Classes",
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
 
                 const SizedBox(height: 15),
 
-                // ------------------------- Class Card -------------------------
                 if (docs.isNotEmpty)
-                  FutureBuilder<List<String>>(
-                    future: Future.wait([
-                      getSubjectName(docs.first['subject']),
-                      getLocationName(docs.first['location']),
-                    ]),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: getClassFullData(docs.first),
                     builder: (context, snap) {
-                      if (!snap.hasData) return const SizedBox();
+                      if (!snap.hasData) {
+                        return const Center(
+                            child: CircularProgressIndicator());
+                      }
 
-                      final date =
-                          (docs.first['date'] as Timestamp).toDate();
+                      final data = snap.data!;
 
                       return _classCard(
-                        className: snap.data![0],
-                        classCode: docs.first['groupid'],
-                        location: snap.data![1],
-                        schedule:
-                            DateFormat('EEE, MMM d • h:mm a').format(date),
+                        context: context,
+                        classId: docs.first.id,
+                        className: data['subject'],
+                        classCode: data['group'],
+                        location: data['location'],
+                        schedule: data['schedule'],
+                        students: data['students'],
+                        attendance: data['attendance'],
                       );
                     },
                   ),
@@ -181,134 +172,187 @@ class TeacherDashboardPage extends StatelessWidget {
     );
   }
 
-  // --------------------------------------------------------------
-  // Schedule Tile
-  // --------------------------------------------------------------
-  Widget _scheduleTile(String title, String subtitle, String time) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600)),
-              Text(subtitle,
-                  style: const TextStyle(color: Colors.white70)),
-            ],
-          ),
-          const Spacer(),
-          Text(time,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  // --------------------------------------------------------------
-  // Class Card
-  // --------------------------------------------------------------
+  // ============================================================
+  // CLASS CARD (NOW CLICKABLE)
+  // ============================================================
   Widget _classCard({
+    required BuildContext context,
+    required String classId,
     required String className,
     required String classCode,
     required String schedule,
     required String location,
+    required int students,
+    required String attendance,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(className,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              const CircleAvatar(
-                radius: 18,
-                backgroundColor: Color(0xFF478AFF),
-                child: Icon(Icons.copy, color: Colors.white),
-              )
-            ],
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TeacherManualAttendancePage(
+              classId: classId,
+              className: className,
+              classCode: classCode,
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(classCode, style: const TextStyle(color: Colors.black54)),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 6)
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-          const SizedBox(height: 12),
-          Row(
-            children: const [
-              Icon(Icons.group, color: Colors.black54, size: 20),
-              SizedBox(width: 8),
-              Text("Students TBD"),
-            ],
-          ),
+            Row(
+              children: [
+                Text(className,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+                const Spacer(),
+                const CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Color(0xFF478AFF),
+                  child: Icon(Icons.arrow_forward_ios,
+                      size: 16, color: Colors.white),
+                )
+              ],
+            ),
 
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today,
-                  color: Colors.black54, size: 20),
-              const SizedBox(width: 8),
-              Text(schedule),
-            ],
-          ),
+            const SizedBox(height: 4),
+            Text(classCode,
+                style: const TextStyle(color: Colors.black54)),
 
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.location_on,
-                  color: Colors.black54, size: 20),
-              const SizedBox(width: 8),
-              Text(location),
-            ],
-          ),
+            const SizedBox(height: 12),
 
-          const SizedBox(height: 14),
-          const Text("Avg. Attendance",
-              style: TextStyle(color: Colors.black54)),
-          const SizedBox(height: 4),
-          const Text("85%",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        ],
+            Row(
+              children: [
+                const Icon(Icons.group,
+                    size: 20, color: Colors.black54),
+                const SizedBox(width: 8),
+                Text("$students students"),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today,
+                    size: 20, color: Colors.black54),
+                const SizedBox(width: 8),
+                Text(schedule),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.location_on,
+                    size: 20, color: Colors.black54),
+                const SizedBox(width: 8),
+                Text(location),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+            const Text("Avg. Attendance",
+                style: TextStyle(color: Colors.black54)),
+            const SizedBox(height: 4),
+            Text(attendance,
+                style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
 }
 
-// --------------------------------------------------------------
-// Firestore Helpers
-// --------------------------------------------------------------
-Future<String> getSubjectName(String subjectId) async {
+Future<String> getSubjectName(String id) async {
   final doc = await FirebaseFirestore.instance
       .collection('subjects')
-      .doc(subjectId)
+      .doc(id)
       .get();
-  return doc.exists ? doc['name'] : subjectId;
+
+  return doc.exists ? doc['name'] : id;
 }
 
-Future<String> getLocationName(String locationId) async {
+Future<String> getLocationName(String id) async {
   final doc = await FirebaseFirestore.instance
       .collection('locations')
-      .doc(locationId)
+      .doc(id)
       .get();
-  return doc.exists ? doc['name'] : locationId;
+
+  return doc.exists ? doc['name'] : id;
+}
+
+Future<int> getNumberOfStudents(String groupId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('groups')
+      .doc(groupId)
+      .get();
+
+  if (!doc.exists) return 0;
+
+  final students = doc['students'] as List<dynamic>?;
+
+  return students?.length ?? 0;
+}
+
+Future<String> calculateAverageAttendance(
+    String classId, int totalStudents) async {
+
+  if (totalStudents == 0) return "0%";
+
+  final snapshot = await FirebaseFirestore.instance
+      .collection('classes')
+      .doc(classId)
+      .collection('attendance')
+      .get();
+
+  if (snapshot.docs.isEmpty) return "0%";
+
+  int totalPresent = 0;
+  int totalSessions = snapshot.docs.length;
+
+  for (var doc in snapshot.docs) {
+    final present =
+        (doc['presentStudents'] as List<dynamic>?)?.length ?? 0;
+    totalPresent += present;
+  }
+
+  final percentage =
+      (totalPresent / (totalStudents * totalSessions)) * 100;
+
+  return "${percentage.toStringAsFixed(0)}%";
+}
+
+Future<Map<String, dynamic>> getClassFullData(
+    QueryDocumentSnapshot doc) async {
+
+  final subjectName = await getSubjectName(doc['subject']);
+  final locationName = await getLocationName(doc['location']);
+  final studentsCount = await getNumberOfStudents(doc['groupid']);
+  final avgAttendance =
+      await calculateAverageAttendance(doc.id, studentsCount);
+
+  final date = (doc['date'] as Timestamp).toDate();
+
+  return {
+    'subject': subjectName,
+    'location': locationName,
+    'group': doc['groupid'],
+    'students': studentsCount,
+    'attendance': avgAttendance,
+    'schedule': DateFormat('EEE, MMM d • h:mm a').format(date),
+  };
 }

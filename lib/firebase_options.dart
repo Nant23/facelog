@@ -63,6 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '668759767042',
     projectId: 'face-log-fb54d',
     storageBucket: 'face-log-fb54d.firebasestorage.app',
+    iosClientId: '668759767042-nh8dlrp1hjtmmokjtpnpjhrki2tid74q.apps.googleusercontent.com',
     iosBundleId: 'com.example.facelog',
   );
 
@@ -72,6 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '668759767042',
     projectId: 'face-log-fb54d',
     storageBucket: 'face-log-fb54d.firebasestorage.app',
+    iosClientId: '668759767042-nh8dlrp1hjtmmokjtpnpjhrki2tid74q.apps.googleusercontent.com',
     iosBundleId: 'com.example.facelog',
   );
 
@@ -83,4 +85,5 @@ class DefaultFirebaseOptions {
     authDomain: 'face-log-fb54d.firebaseapp.com',
     storageBucket: 'face-log-fb54d.firebasestorage.app',
   );
+
 }

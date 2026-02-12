@@ -20,6 +20,9 @@ class _LoginPageState extends State<LoginPage> {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // -----------------------------
+  // Email/Password Login
+  // -----------------------------
   Future<void> login() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
@@ -30,9 +33,6 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      // ---------------------------
-      // USER LOGIN
-      // ---------------------------
       UserCredential cred = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -45,12 +45,8 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      // ---------------------------
-      // GET FCM TOKEN
-      // ---------------------------
+      // Get FCM token
       String? token = await FirebaseMessaging.instance.getToken();
-      print("📱 FCM Token (Login): $token");
-
       if (token != null) {
         await FirebaseFirestore.instance
             .collection("users")
@@ -58,13 +54,9 @@ class _LoginPageState extends State<LoginPage> {
             .update({"fcmToken": token});
       }
 
-      // ---------------------------
-      // GET USER ROLE
-      // ---------------------------
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .get();
+      // Get user role
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection("users").doc(user.uid).get();
 
       if (!userDoc.exists) {
         showSnack("User data not found");
@@ -75,33 +67,82 @@ class _LoginPageState extends State<LoginPage> {
 
       showSnack("Login successful!");
 
-      // ---------------------------
-      // ROLE BASED NAVIGATION
-      // ---------------------------
-      if (role == "student") {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const StudentMainPage()),
-        );
-      } else if (role == "teacher") {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const TeacherMainPage()),
-        );
-      } else if (role == "admin") {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminDashboard()),
-        );
-      }else {
-        showSnack("Invalid user role");
-      }
+      _navigateToRolePage(role);
     } on FirebaseAuthException catch (e) {
       showSnack(e.message ?? "Login failed");
     }
   }
 
+  // -----------------------------
+  // Google Sign-In
+  // -----------------------------
+  Future<void> signInWithGoogle() async {
+  try {
+    final provider = GoogleAuthProvider();
 
+    // Sign in with Firebase directly
+    UserCredential userCredential =
+        await FirebaseAuth.instance.signInWithProvider(provider);
+
+    User? user = userCredential.user;
+    if (user == null) throw Exception("Google login failed");
+
+    // Get FCM token
+    String? token = await FirebaseMessaging.instance.getToken();
+
+    // Firestore user document
+    DocumentReference userRef =
+        FirebaseFirestore.instance.collection("users").doc(user.uid);
+
+    DocumentSnapshot userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      await userRef.set({
+        "email": user.email,
+        "role": "student", // default role
+        "fcmToken": token,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+    } else {
+      await userRef.update({"fcmToken": token});
+    }
+
+    userDoc = await userRef.get();
+    String role = userDoc.get("role");
+
+    print("Google login successful, role: $role");
+  } catch (e) {
+    print("Google login error: $e");
+  }
+}
+
+  // -----------------------------
+  // Navigate by Role
+  // -----------------------------
+  void _navigateToRolePage(String role) {
+    if (role == "student") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const StudentMainPage()),
+      );
+    } else if (role == "teacher") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherMainPage()),
+      );
+    } else if (role == "admin") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminDashboard()),
+      );
+    } else {
+      showSnack("Invalid user role");
+    }
+  }
+
+  // -----------------------------
+  // Show SnackBar
+  // -----------------------------
   void showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
@@ -177,6 +218,23 @@ class _LoginPageState extends State<LoginPage> {
                 child: const Text(
                   'Login',
                   style: TextStyle(fontSize: 18),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              // GOOGLE LOGIN BUTTON
+              ElevatedButton.icon(
+                onPressed: signInWithGoogle,
+                icon: const Icon(Icons.login),
+                label: const Text("Sign in with Google"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
 

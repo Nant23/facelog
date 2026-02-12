@@ -1,10 +1,63 @@
 import 'package:flutter/material.dart';
 import 'teacher_leave_requests_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../login_page.dart';
 
-class TeacherProfilePage extends StatelessWidget {
+class TeacherProfilePage extends StatefulWidget {
   const TeacherProfilePage({super.key});
+
+  @override
+  State<TeacherProfilePage> createState() => _TeacherProfilePageState();
+}
+
+class _TeacherProfilePageState extends State<TeacherProfilePage> {
+
+  String name = "";
+  String email = "";
+  String department = "";
+  String teacherId = "";
+
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchTeacherData();
+  }
+
+  // --------------------------------------------------
+  // Fetch Teacher Data from Firestore
+  // --------------------------------------------------
+  Future<void> fetchTeacherData() async {
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection("teachers")
+          .doc(uid)
+          .get();
+
+      if (doc.exists) {
+        setState(() {
+          name = doc["name"] ?? "";
+          email = doc["email"] ?? "";
+          department = doc["department"] ?? "";
+          teacherId = doc["taecherId"] ?? ""; // Keep as per your DB spelling
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching teacher data: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,18 +82,20 @@ class TeacherProfilePage extends StatelessWidget {
         ],
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Column(
-          children: [
-            _profileHeader(),
-            const SizedBox(height: 25),
-            _infoCard(),
-            const SizedBox(height: 20),
-            _settingsCard(context),
-          ],
-        ),
-      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Column(
+                children: [
+                  _profileHeader(),
+                  const SizedBox(height: 25),
+                  _infoCard(),
+                  const SizedBox(height: 20),
+                  _settingsCard(context),
+                ],
+              ),
+            ),
     );
   }
 
@@ -60,8 +115,8 @@ class TeacherProfilePage extends StatelessWidget {
         ),
       ),
       child: Column(
-        children: const [
-          CircleAvatar(
+        children: [
+          const CircleAvatar(
             radius: 45,
             backgroundColor: Colors.white,
             child: Icon(
@@ -70,17 +125,17 @@ class TeacherProfilePage extends StatelessWidget {
               color: Color(0xFF478AFF),
             ),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
-            "Ananta Gurung",
-            style: TextStyle(
+            name,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 4),
-          Text(
+          const SizedBox(height: 4),
+          const Text(
             "Teacher",
             style: TextStyle(color: Colors.white70),
           ),
@@ -108,11 +163,11 @@ class TeacherProfilePage extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _infoRow(Icons.email, "Email", "ananta@gmail.com"),
+          _infoRow(Icons.email, "Email", email),
           const Divider(),
-          _infoRow(Icons.school, "Department", "Science"),
+          _infoRow(Icons.school, "Department", department),
           const Divider(),
-          _infoRow(Icons.badge, "Employee ID", "TCH-1021"),
+          _infoRow(Icons.badge, "Teacher ID", teacherId),
         ],
       ),
     );
@@ -137,12 +192,13 @@ class TeacherProfilePage extends StatelessWidget {
       ),
       child: Column(
         children: [
+
+          // View Leave Requests
           _actionTile(
             icon: Icons.assignment_outlined,
             label: "View Leave Requests",
             color: Colors.blue,
             onTap: () {
-              // Navigate to teacher leave requests page
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -151,33 +207,48 @@ class TeacherProfilePage extends StatelessWidget {
               );
             },
           ),
+
           const Divider(),
+
+          // Change Password (Dummy)
           _actionTile(
             icon: Icons.lock_outline,
             label: "Change Password",
-            onTap: () {},
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Change Password clicked")),
+              );
+            },
           ),
+
           const Divider(),
+
+          // Notifications (Dummy)
           _actionTile(
             icon: Icons.notifications_none,
             label: "Notifications",
-            onTap: () {}, 
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Notifications clicked")),
+              );
+            },
           ),
+
           const Divider(),
+
+          // Logout
           _actionTile(
             icon: Icons.logout,
             label: "Logout",
             color: Colors.red,
-            onTap: () async{
+            onTap: () async {
               try {
-                await FirebaseAuth.instance.signOut(); // Sign out the user
-                // Navigate to login page and remove all previous routes
+                await FirebaseAuth.instance.signOut();
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginPage()), 
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
                   (route) => false,
                 );
               } catch (e) {
-                // Show error if logout fails
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text("Logout failed: $e")),
                 );
@@ -188,7 +259,6 @@ class TeacherProfilePage extends StatelessWidget {
       ),
     );
   }
-
 
   static Widget _infoRow(IconData icon, String label, String value) {
     return Row(

@@ -12,7 +12,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  print("🔔 Background Notification: ${message.notification?.title}");
+  print("Background Notification: ${message.notification?.title}");
 }
 
 /// ------------------------
@@ -94,7 +94,7 @@ class _MyAppState extends State<MyApp> {
 
     // 🔔 Listen for foreground notifications
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print("📩 Foreground message received!");
+      print("Foreground message received!");
       showLocalNotification(message);
     });
 
@@ -120,7 +120,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> getFcmToken() async {
     String? token = await FirebaseMessaging.instance.getToken();
-    print("📱 FCM Token: $token");
+    print("FCM Token: $token");
 
     // TODO: Save this token to Firestore under the user's document
   }

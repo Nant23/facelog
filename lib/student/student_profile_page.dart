@@ -20,6 +20,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   String studentEmail = "";
   String studentClass = "";
 
+  String? documentId; // <-- store actual firestore doc id
   bool isLoading = true;
 
   @override
@@ -30,40 +31,51 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
 
   Future<void> _loadStudentData() async {
     try {
-      print("USER: ${_auth.currentUser}");
-      print("UID: ${_auth.currentUser?.uid}");
-
       final user = _auth.currentUser;
 
       if (user == null) {
-        print("User is NULL");
         setState(() => isLoading = false);
         return;
       }
 
-      // Fetch student document by UID
-      final doc = await _firestore.collection('students').doc(user.uid).get();
-      if (doc.exists) {
-        final data = doc.data()!;
+      print("Logged in UID: ${user.uid}");
+
+      // 🔥 Query by uid field instead of document ID
+      final query = await _firestore
+          .collection('students')
+          .where('uid', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        final doc = query.docs.first;
+        final data = doc.data();
+
+        documentId = doc.id; // Save actual document ID
+
+        if (!mounted) return;
+
         setState(() {
           studentName = data['name'] ?? "";
           studentEmail = data['email'] ?? user.email ?? "";
-          studentClass = data['class'] ?? "";
+          studentClass =
+              "${data['department'] ?? ""} - ${data['group'] ?? ""}";
           isLoading = false;
         });
       } else {
-        // If no doc found
-        setState(() {
-          isLoading = false;
-        });
+        if (!mounted) return;
+
+        setState(() => isLoading = false);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Student data not found.")),
         );
       }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      if (!mounted) return;
+
+      setState(() => isLoading = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error loading data: $e")),
       );
@@ -87,68 +99,41 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // --------- PROFILE IMAGE ---------
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Colors.grey.shade300,
-                  child:
-                      const Icon(Icons.person, size: 60, color: Colors.white),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 4,
-                  child: GestureDetector(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Change Profile Picture")),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.blue,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 20),
+
+            // PROFILE IMAGE
+            const CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.grey,
+              child: Icon(Icons.person, size: 60, color: Colors.white),
             ),
 
             const SizedBox(height: 30),
 
-            // --------- NAME ---------
+            // NAME
             ListTile(
               leading: const Icon(Icons.person, color: Colors.blue),
               title: const Text("Name"),
               subtitle: Text(studentName),
               trailing: IconButton(
-                icon: const Icon(Icons.edit, color: Colors.grey),
+                icon: const Icon(Icons.edit),
                 onPressed: () {
                   _editField("Name", studentName, (val) async {
-                    setState(() => studentName = val);
-                    // Update in Firestore
-                    final user = _auth.currentUser;
-                    if (user != null) {
+                    if (documentId != null) {
                       await _firestore
                           .collection('students')
-                          .doc(user.uid)
+                          .doc(documentId)
                           .update({'name': val});
                     }
+
+                    setState(() => studentName = val);
                   });
                 },
               ),
             ),
             const Divider(),
 
-            // --------- EMAIL ---------
+            // EMAIL
             ListTile(
               leading: const Icon(Icons.email, color: Colors.blue),
               title: const Text("Email"),
@@ -156,7 +141,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             ),
             const Divider(),
 
-            // --------- CLASS ---------
+            // CLASS
             ListTile(
               leading: const Icon(Icons.school, color: Colors.blue),
               title: const Text("Class"),
@@ -164,32 +149,30 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             ),
             const Divider(),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
 
-            // --------- LOGOUT BUTTON ---------
+            // LOGOUT
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
                 onPressed: () async {
-                  try {
-                    await _auth.signOut();
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const LoginPage()),
-                      (route) => false,
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Logout failed: $e")),
-                    );
-                  }
+                  await _auth.signOut();
+
+                  if (!mounted) return;
+
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text(
                   "Logout",
@@ -203,9 +186,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     );
   }
 
-  void _editField(String field, String currentValue, Function(String) onSave) {
-    final TextEditingController controller =
-        TextEditingController(text: currentValue);
+  void _editField(String field, String currentValue,
+      Function(String) onSave) {
+    final controller = TextEditingController(text: currentValue);
 
     showDialog(
       context: context,
@@ -222,7 +205,10 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           ),
           ElevatedButton(
             onPressed: () {
-              onSave(controller.text.trim());
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                onSave(value);
+              }
               Navigator.pop(context);
             },
             child: const Text("Save"),

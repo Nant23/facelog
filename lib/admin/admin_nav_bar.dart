@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'admin_home_page.dart';
+import 'admin_students_page.dart';
 import 'add_classroom_page.dart';
 import 'schedule_class_page.dart';
 import 'add_teacher_page.dart';
@@ -15,7 +15,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
-    AdminHomePage(),
+    AdminStudentsPage(),
     AddClassroomPage(),
     ScheduleClassPage(),
     AddTeacherPage(),

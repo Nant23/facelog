@@ -5,7 +5,7 @@ import 'package:facelog/teacher/teacher_main_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'admin/admin_dashboard.dart';
+import 'admin/admin_nav_bar.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -48,8 +48,7 @@ class _LoginPageState extends State<LoginPage> {
       String? token = await FirebaseMessaging.instance.getToken();
 
       // Safely create or update Firestore user document
-      DocumentReference userRef =
-          FirebaseFirestore.instance.collection("users").doc(user.uid);
+      DocumentReference userRef = FirebaseFirestore.instance.collection("users").doc(user.uid);
 
       await userRef.set({
         "email": user.email,
@@ -59,8 +58,7 @@ class _LoginPageState extends State<LoginPage> {
 
       // Get user role
       DocumentSnapshot userDoc = await userRef.get();
-      Map<String, dynamic> userData =
-          userDoc.data() as Map<String, dynamic>? ?? {};
+      Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>? ?? {};
 
       // Assign default role if missing
       if (!userData.containsKey("role")) {

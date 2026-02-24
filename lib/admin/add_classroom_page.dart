@@ -10,7 +10,6 @@ class AddClassroomPage extends StatefulWidget {
 }
 
 class _AddClassroomPageState extends State<AddClassroomPage> {
-
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String? selectedGroupId;
@@ -19,6 +18,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
   String? selectedTeacherId;
   DateTime? selectedDate;
 
+  /// ================== GENERATE CLASS ID ==================
   Future<String> generateNextClassId() async {
     final snapshot = await _firestore.collection('classes').get();
 
@@ -37,6 +37,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
     return "class${nextNumber.toString().padLeft(3, '0')}";
   }
 
+  /// ================== ADD CLASS ==================
   Future<void> addClass() async {
     if (selectedGroupId == null ||
         selectedSubjectId == null ||
@@ -64,9 +65,16 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
       const SnackBar(content: Text("Class Added Successfully")),
     );
 
-    //Navigator.pop(context);
+    setState(() {
+      selectedGroupId = null;
+      selectedSubjectId = null;
+      selectedLocationId = null;
+      selectedTeacherId = null;
+      selectedDate = null;
+    });
   }
 
+  /// ================== DATE & TIME PICKER ==================
   Future<void> pickDateTime() async {
     DateTime? date = await showDatePicker(
       context: context,
@@ -95,149 +103,204 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
     });
   }
 
+  /// ================== REUSABLE DROPDOWN ==================
+  Widget buildDropdown({
+    required String label,
+    required IconData icon,
+    required Stream<QuerySnapshot> stream,
+    required String? selectedValue,
+    required Function(String?) onChanged,
+    bool isTeacher = false,
+  }) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        return DropdownButtonFormField<String>(
+          value: selectedValue,
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+          ),
+          items: snapshot.data!.docs.map((doc) {
+            return DropdownMenuItem<String>(
+              value: isTeacher ? doc['teacherId'] : doc.id,
+              child: Text(doc['name']),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        );
+      },
+    );
+  }
+
+  /// ================== UI ==================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Add Classroom")),
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: const Text("Add Classroom"),
+        centerTitle: true,
+        elevation: 0,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
-          child: Column(
-            children: [
+          child: Card(
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
 
-              /// GROUP DROPDOWN
-              StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('groups').snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
-
-                  return DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: "Select Group",
-                      border: OutlineInputBorder(),
+                  const Text(
+                    "Create New Class",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    value: selectedGroupId,
-                    items: snapshot.data!.docs.map((doc) {
-                      return DropdownMenuItem<String>(
-                        value: doc.id,
-                        child: Text(doc['name']),
-                      );
-                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  buildDropdown(
+                    label: "Select Group",
+                    icon: Icons.group,
+                    stream: _firestore.collection('groups').snapshots(),
+                    selectedValue: selectedGroupId,
                     onChanged: (value) {
                       setState(() {
                         selectedGroupId = value;
                       });
                     },
-                  );
-                },
-              ),
+                  ),
 
-              const SizedBox(height: 15),
+                  const SizedBox(height: 15),
 
-              /// SUBJECT DROPDOWN
-              StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('subjects').snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
-
-                  return DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: "Select Subject",
-                      border: OutlineInputBorder(),
-                    ),
-                    value: selectedSubjectId,
-                    items: snapshot.data!.docs.map((doc) {
-                      return DropdownMenuItem<String>(
-                        value: doc.id,
-                        child: Text(doc['name']),
-                      );
-                    }).toList(),
+                  buildDropdown(
+                    label: "Select Subject",
+                    icon: Icons.book,
+                    stream: _firestore.collection('subjects').snapshots(),
+                    selectedValue: selectedSubjectId,
                     onChanged: (value) {
                       setState(() {
                         selectedSubjectId = value;
                       });
                     },
-                  );
-                },
-              ),
+                  ),
 
-              const SizedBox(height: 15),
+                  const SizedBox(height: 15),
 
-              /// LOCATION DROPDOWN
-              StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('locations').snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
-
-                  return DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: "Select Location",
-                      border: OutlineInputBorder(),
-                    ),
-                    value: selectedLocationId,
-                    items: snapshot.data!.docs.map((doc) {
-                      return DropdownMenuItem<String>(
-                        value: doc.id,
-                        child: Text(doc['name']),
-                      );
-                    }).toList(),
+                  buildDropdown(
+                    label: "Select Location",
+                    icon: Icons.location_on,
+                    stream: _firestore.collection('locations').snapshots(),
+                    selectedValue: selectedLocationId,
                     onChanged: (value) {
                       setState(() {
                         selectedLocationId = value;
                       });
                     },
-                  );
-                },
-              ),
+                  ),
 
-              const SizedBox(height: 15),
+                  const SizedBox(height: 15),
 
-              /// TEACHER DROPDOWN
-              StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('teachers').snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
-
-                  return DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: "Assign Teacher",
-                      border: OutlineInputBorder(),
-                    ),
-                    value: selectedTeacherId,
-                    items: snapshot.data!.docs.map((doc) {
-                      return DropdownMenuItem<String>(
-                        value: doc['teacherId'], // use teacherId field
-                        child: Text(doc['name']),
-                      );
-                    }).toList(),
+                  buildDropdown(
+                    label: "Assign Teacher",
+                    icon: Icons.person,
+                    stream: _firestore.collection('teachers').snapshots(),
+                    selectedValue: selectedTeacherId,
+                    isTeacher: true,
                     onChanged: (value) {
                       setState(() {
                         selectedTeacherId = value;
                       });
                     },
-                  );
-                },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  /// DATE & TIME PICKER
+                  InkWell(
+                    onTap: pickDateTime,
+                    borderRadius: BorderRadius.circular(15),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 15),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.grey.shade400),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_today),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              selectedDate == null
+                                  ? "Pick Date & Time"
+                                  : DateFormat('yyyy-MM-dd HH:mm')
+                                      .format(selectedDate!),
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  /// ADD BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: addClass,
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          // gradient: const LinearGradient(
+                          //   colors: [
+                          //     Colors.blue,
+                          //     Colors.indigo,
+                          //   ],
+                          
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            "Add Classroom",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-
-              const SizedBox(height: 20),
-
-              /// DATE TIME PICKER
-              ElevatedButton(
-                onPressed: pickDateTime,
-                child: Text(
-                  selectedDate == null
-                      ? "Pick Date & Time"
-                      : DateFormat('yyyy-MM-dd HH:mm').format(selectedDate!),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              ElevatedButton(
-                onPressed: addClass,
-                child: const Text("Add Classroom"),
-              ),
-            ],
+            ),
           ),
         ),
       ),

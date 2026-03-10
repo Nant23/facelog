@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'admin_students_page.dart';
 import 'add_classroom_page.dart';
-import 'schedule_class_page.dart';
+import 'create_subject_page.dart';
 import 'add_teacher_page.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -17,7 +17,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final List<Widget> _pages = [
     AdminStudentsPage(),
     AddClassroomPage(),
-    ScheduleClassPage(),
+    CreateSubjectPage(),
     AddTeacherPage(),
   ];
 

@@ -17,6 +17,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
   String? selectedLocationId;
   String? selectedTeacherId;
   DateTime? selectedDate;
+  Duration? selectedDuration; // ✅ NEW
 
   /// ================== GENERATE CLASS ID ==================
   Future<String> generateNextClassId() async {
@@ -43,7 +44,8 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
         selectedSubjectId == null ||
         selectedLocationId == null ||
         selectedTeacherId == null ||
-        selectedDate == null) {
+        selectedDate == null ||
+        selectedDuration == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields")),
       );
@@ -59,6 +61,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
       'location': selectedLocationId,
       'subject': selectedSubjectId,
       'teacherId': selectedTeacherId,
+      'duration': selectedDuration!.inMinutes, // ✅ STORED IN MINUTES
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -71,6 +74,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
       selectedLocationId = null;
       selectedTeacherId = null;
       selectedDate = null;
+      selectedDuration = null; // ✅ RESET
     });
   }
 
@@ -163,7 +167,6 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   const Text(
                     "Create New Class",
                     style: TextStyle(
@@ -180,9 +183,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
                     stream: _firestore.collection('groups').snapshots(),
                     selectedValue: selectedGroupId,
                     onChanged: (value) {
-                      setState(() {
-                        selectedGroupId = value;
-                      });
+                      setState(() => selectedGroupId = value);
                     },
                   ),
 
@@ -194,9 +195,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
                     stream: _firestore.collection('subjects').snapshots(),
                     selectedValue: selectedSubjectId,
                     onChanged: (value) {
-                      setState(() {
-                        selectedSubjectId = value;
-                      });
+                      setState(() => selectedSubjectId = value);
                     },
                   ),
 
@@ -208,9 +207,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
                     stream: _firestore.collection('locations').snapshots(),
                     selectedValue: selectedLocationId,
                     onChanged: (value) {
-                      setState(() {
-                        selectedLocationId = value;
-                      });
+                      setState(() => selectedLocationId = value);
                     },
                   ),
 
@@ -223,15 +220,47 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
                     selectedValue: selectedTeacherId,
                     isTeacher: true,
                     onChanged: (value) {
-                      setState(() {
-                        selectedTeacherId = value;
-                      });
+                      setState(() => selectedTeacherId = value);
+                    },
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  /// ================== DURATION DROPDOWN ==================
+                  DropdownButtonFormField<Duration>(
+                    value: selectedDuration,
+                    decoration: InputDecoration(
+                      labelText: "Class Duration",
+                      prefixIcon: const Icon(Icons.timer),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: Duration(minutes: 30),
+                          child: Text("30 minutes")),
+                      DropdownMenuItem(
+                          value: Duration(minutes: 45),
+                          child: Text("45 minutes")),
+                      DropdownMenuItem(
+                          value: Duration(hours: 1),
+                          child: Text("1 hour")),
+                      DropdownMenuItem(
+                          value: Duration(hours: 1, minutes: 30),
+                          child: Text("1 hour 30 minutes")),
+                      DropdownMenuItem(
+                          value: Duration(hours: 2),
+                          child: Text("2 hours")),
+                    ],
+                    onChanged: (value) {
+                      setState(() => selectedDuration = value);
                     },
                   ),
 
                   const SizedBox(height: 20),
 
-                  /// DATE & TIME PICKER
+                  /// ================== DATE & TIME PICKER ==================
                   InkWell(
                     onTap: pickDateTime,
                     borderRadius: BorderRadius.circular(15),
@@ -262,7 +291,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
 
                   const SizedBox(height: 30),
 
-                  /// ADD BUTTON
+                  /// ================== ADD BUTTON ==================
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -272,28 +301,12 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
-                        padding: EdgeInsets.zero,
                       ),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          // gradient: const LinearGradient(
-                          //   colors: [
-                          //     Colors.blue,
-                          //     Colors.indigo,
-                          //   ],
-                          
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            "Add Classroom",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
+                      child: const Text(
+                        "Add Classroom",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),

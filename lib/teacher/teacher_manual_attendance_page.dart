@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class TeacherManualAttendancePage extends StatefulWidget {
   final String className;
-  final String classCode; // this is groupid
-  final String classId;   // Firestore document id of class
+  final String classCode;
+  final String classId;
 
   const TeacherManualAttendancePage({
     super.key,
@@ -14,102 +15,101 @@ class TeacherManualAttendancePage extends StatefulWidget {
   });
 
   @override
-  State<TeacherManualAttendancePage> createState() =>
-      _TeacherManualAttendancePageState();
+  State<TeacherManualAttendancePage> createState() => _TeacherManualAttendancePageState();
 }
 
-class _TeacherManualAttendancePageState
-    extends State<TeacherManualAttendancePage> {
+class _TeacherManualAttendancePageState extends State<TeacherManualAttendancePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  List<StudentModel> students = [];
-  List<String> attendedList = [];
-
+  List<_StudentModel> students = [];
   bool isLoading = true;
+  bool isSaving = false;
+  DateTime? classDate;
 
   @override
   void initState() {
     super.initState();
-    loadData();
+    _loadData();
   }
 
-  Future<void> loadData() async {
+  Future<void> _loadData() async {
     try {
-      // 1️⃣ Get class document
-      final classDoc =
-          await _firestore.collection('classes').doc(widget.classId).get();
+      final classDoc = await _firestore.collection('classes').doc(widget.classId).get();
+      final attendedList = List<String>.from(classDoc.data()?['attended'] ?? []);
+      classDate = (classDoc['date'] as Timestamp).toDate();
 
-      attendedList =
-          List<String>.from(classDoc.data()?['attended'] ?? []);
+      final groupDoc = await _firestore.collection('groups').doc(widget.classCode).get();
+      final studentUids = List<dynamic>.from(groupDoc['students'] ?? []);
 
-      // 2️⃣ Get group document
-      final groupDoc = await _firestore
-          .collection('groups')
-          .doc(widget.classCode)
-          .get();
-
-      List<dynamic> studentUids = groupDoc['students'];
-
-      // 3️⃣ Fetch student names
+      final loadedStudents = <_StudentModel>[];
       for (var uid in studentUids) {
-        final studentDoc =
-            await _firestore.collection('students').doc(uid).get();
-
-        final name = studentDoc['name'];
-
-        students.add(
-          StudentModel(
+        final studentDoc = await _firestore.collection('students').doc(uid).get();
+        if (studentDoc.exists) {
+          loadedStudents.add(_StudentModel(
             uid: uid,
-            name: name,
+            name: studentDoc['name'],
             isPresent: attendedList.contains(uid),
-          ),
-        );
+          ));
+        }
       }
 
       setState(() {
+        students = loadedStudents;
         isLoading = false;
       });
     } catch (e) {
-      print("Error loading attendance data: $e");
+      setState(() => isLoading = false);
     }
   }
 
-  Future<void> saveAttendance() async {
-    List<String> updatedPresent =
-        students.where((s) => s.isPresent).map((s) => s.uid).toList();
+  Future<void> _saveAttendance() async {
+    setState(() => isSaving = true);
+    try {
+      final updatedPresent = students.where((s) => s.isPresent).map((s) => s.uid).toList();
+      await _firestore.collection('classes').doc(widget.classId).update({'attended': updatedPresent});
 
-    await _firestore.collection('classes').doc(widget.classId).update({
-      'attended': updatedPresent,
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 10),
+              Text('Attendance saved successfully'),
+            ]),
+            backgroundColor: const Color(0xFF22C55E),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
+  }
+
+  void _markAll(bool present) {
+    setState(() {
+      for (var s in students) s.isPresent = present;
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Attendance Saved Successfully")),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final presentCount = students.where((s) => s.isPresent).length;
+    final total = students.length;
+    final pct = total > 0 ? presentCount / total * 100 : 0.0;
+
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF4F6FB),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF1A1F3C),
+        foregroundColor: Colors.white,
         elevation: 0,
-        backgroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.className,
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
-            ),
-            Text(
-              widget.classCode,
-              style:
-                  const TextStyle(color: Colors.black54, fontSize: 14),
-            ),
+            Text(widget.className, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+            Text(widget.classCode, style: const TextStyle(color: Color(0xFF8A9BB5), fontSize: 12)),
           ],
         ),
       ),
@@ -117,111 +117,255 @@ class _TeacherManualAttendancePageState
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _dateHeader(),
+                // ── Summary Header ──────────────────────────
+                Container(
+                  color: const Color(0xFF1A1F3C),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, color: Color(0xFF4F6EF7), size: 18),
+                            const SizedBox(width: 10),
+                            Text(
+                              classDate != null
+                                  ? DateFormat('EEEE, MMMM d, yyyy').format(classDate!)
+                                  : 'Manual Attendance',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: _pctColor(pct).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${pct.toStringAsFixed(0)}%',
+                                style: TextStyle(color: _pctColor(pct), fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _SummaryChip(
+                              label: 'Present',
+                              count: presentCount,
+                              color: const Color(0xFF22C55E),
+                              icon: Icons.check_circle_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _SummaryChip(
+                              label: 'Absent',
+                              count: total - presentCount,
+                              color: const Color(0xFFEF4444),
+                              icon: Icons.cancel_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _SummaryChip(
+                              label: 'Total',
+                              count: total,
+                              color: const Color(0xFF4F6EF7),
+                              icon: Icons.groups_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Mark All Row ────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                  child: Row(
+                    children: [
+                      Text('Students', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700, fontSize: 14)),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () => _markAll(true),
+                        icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF22C55E)),
+                        label: const Text('All Present', style: TextStyle(color: Color(0xFF22C55E), fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _markAll(false),
+                        icon: const Icon(Icons.cancel_rounded, size: 16, color: Color(0xFFEF4444)),
+                        label: const Text('All Absent', style: TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Student List ────────────────────────────
                 Expanded(
-                  child: ListView.builder(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: students.length,
-                    itemBuilder: (context, index) {
-                      return _studentTile(students[index]);
-                    },
+                  child: students.isEmpty
+                      ? Center(child: Text('No students in this group', style: TextStyle(color: Colors.grey.shade400)))
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                          itemCount: students.length,
+                          itemBuilder: (context, index) {
+                            return _StudentTile(
+                              student: students[index],
+                              index: index,
+                              onChanged: (v) => setState(() => students[index].isPresent = v),
+                            );
+                          },
+                        ),
+                ),
+
+                // ── Save Button ─────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  color: Colors.white,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: isSaving ? null : _saveAttendance,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F6EF7),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      child: isSaving
+                          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.save_rounded),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Save Attendance ($presentCount/$total)',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
                 ),
               ],
             ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF478AFF),
-            padding:
-                const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-          onPressed: saveAttendance,
-          child: const Text(
-            "Save Attendance",
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold),
-          ),
-        ),
-      ),
     );
   }
 
-  Widget _dateHeader() {
+  Color _pctColor(double pct) {
+    if (pct >= 75) return const Color(0xFF22C55E);
+    if (pct >= 50) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  final IconData icon;
+  const _SummaryChip({required this.label, required this.count, required this.color, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF478AFF), Color(0xFF6A4BFF)],
-        ),
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
-        children: const [
-          Icon(Icons.calendar_today, color: Colors.white),
-          SizedBox(width: 12),
-          Text(
-            "Today • Manual Attendance",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 4),
+          Text('$count', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(label, style: TextStyle(color: color.withOpacity(0.7), fontSize: 10)),
         ],
       ),
     );
   }
+}
 
-  Widget _studentTile(StudentModel student) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+class _StudentTile extends StatelessWidget {
+  final _StudentModel student;
+  final int index;
+  final ValueChanged<bool> onChanged;
+  const _StudentTile({required this.student, required this.index, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 5,
-            offset: Offset(0, 3),
-          ),
-        ],
+        color: student.isPresent ? const Color(0xFF22C55E).withOpacity(0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: student.isPresent ? const Color(0xFF22C55E).withOpacity(0.3) : const Color(0xFFE8ECF4),
+        ),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: const Color(0xFF478AFF),
+            radius: 22,
+            backgroundColor: student.isPresent
+                ? const Color(0xFF22C55E).withOpacity(0.15)
+                : const Color(0xFF4F6EF7).withOpacity(0.1),
             child: Text(
-              student.name[0],
-              style:
-                  const TextStyle(color: Colors.white),
+              student.name[0].toUpperCase(),
+              style: TextStyle(
+                color: student.isPresent ? const Color(0xFF22C55E) : const Color(0xFF4F6EF7),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              student.name,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(student.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1A1F3C))),
+                Text(
+                  student.isPresent ? 'Present' : 'Absent',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: student.isPresent ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
           Switch(
             value: student.isPresent,
-            activeColor: Colors.green,
-            onChanged: (value) {
-              setState(() {
-                student.isPresent = value;
-              });
-            },
+            activeColor: const Color(0xFF22C55E),
+            activeTrackColor: const Color(0xFF22C55E).withOpacity(0.3),
+            inactiveThumbColor: const Color(0xFFEF4444),
+            inactiveTrackColor: const Color(0xFFEF4444).withOpacity(0.2),
+            onChanged: onChanged,
           ),
         ],
       ),
@@ -229,14 +373,10 @@ class _TeacherManualAttendancePageState
   }
 }
 
-class StudentModel {
+class _StudentModel {
   final String uid;
   final String name;
   bool isPresent;
 
-  StudentModel({
-    required this.uid,
-    required this.name,
-    required this.isPresent,
-  });
+  _StudentModel({required this.uid, required this.name, required this.isPresent});
 }

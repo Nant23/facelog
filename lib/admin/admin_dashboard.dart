@@ -1,8 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'admin_students_page.dart';
 import 'add_classroom_page.dart';
 import 'create_subject_page.dart';
 import 'add_teacher_page.dart';
+import '../login_page.dart';
 
 /// =====================================================
 /// ADMIN DASHBOARD — Main entry point with Drawer nav
@@ -176,8 +178,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: () {
-                    // TODO: sign out
+                  onTap: () async {
+                    try {
+                      await FirebaseAuth.instance.signOut();
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const LoginPage()),
+                        (route) => false,
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Logout failed: $e')),
+                      );
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),

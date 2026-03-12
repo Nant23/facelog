@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'teacher_leave_requests_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'teacher_leave_requests_page.dart';
 import '../login_page.dart';
 
 class TeacherProfilePage extends StatefulWidget {
@@ -12,287 +12,294 @@ class TeacherProfilePage extends StatefulWidget {
 }
 
 class _TeacherProfilePageState extends State<TeacherProfilePage> {
-
-  String name = "";
-  String email = "";
-  String department = "";
-  String teacherId = "";
-
+  String name = '', email = '', department = '', teacherId = '';
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchTeacherData();
+    _fetchTeacherData();
   }
 
-  // --------------------------------------------------
-  // Fetch Teacher Data from Firestore
-  // --------------------------------------------------
-  Future<void> fetchTeacherData() async {
+  Future<void> _fetchTeacherData() async {
     try {
-      String uid = FirebaseAuth.instance.currentUser!.uid;
-
-      DocumentSnapshot doc = await FirebaseFirestore.instance
-          .collection("teachers")
-          .doc(uid)
-          .get();
-
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final doc = await FirebaseFirestore.instance.collection('teachers').doc(uid).get();
       if (doc.exists) {
         setState(() {
-          name = doc["name"] ?? "";
-          email = doc["email"] ?? "";
-          department = doc["department"] ?? "";
-          teacherId = doc["taecherId"] ?? ""; // Keep as per your DB spelling
+          name = doc['name'] ?? '';
+          email = doc['email'] ?? '';
+          department = doc['department'] ?? '';
+          teacherId = doc['teacherId'] ?? '';
           isLoading = false;
         });
       } else {
-        setState(() {
-          isLoading = false;
-        });
+        setState(() => isLoading = false);
       }
     } catch (e) {
-      print("Error fetching teacher data: $e");
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: const Text(
-          "Profile",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: Icon(Icons.edit, color: Colors.black),
-          )
-        ],
-      ),
-
+      backgroundColor: const Color(0xFFF4F6FB),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Column(
                 children: [
-                  _profileHeader(),
-                  const SizedBox(height: 25),
-                  _infoCard(),
-                  const SizedBox(height: 20),
-                  _settingsCard(context),
+                  // ── Profile Hero ───────────────────────────
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.only(top: 56, bottom: 28, left: 24, right: 24),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1A1F3C),
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+                    ),
+                    child: Column(
+                      children: [
+                        Stack(
+                          children: [
+                            Container(
+                              width: 90,
+                              height: 90,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4F6EF7),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white.withOpacity(0.2), width: 3),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  name.isNotEmpty ? name[0].toUpperCase() : 'T',
+                                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: GestureDetector(
+                                onTap: () {},
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: const Color(0xFF1A1F3C), width: 2),
+                                  ),
+                                  child: const Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        const Text('Teacher', style: TextStyle(color: Color(0xFF8A9BB5), fontSize: 13)),
+                        const SizedBox(height: 12),
+                        if (teacherId.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4F6EF7).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(teacherId, style: const TextStyle(color: Color(0xFF4F6EF7), fontWeight: FontWeight.w600, fontSize: 13)),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        // ── Info Card ──────────────────────────
+                        _SectionCard(
+                          children: [
+                            _InfoRow(icon: Icons.email_outlined, label: 'Email', value: email),
+                            const _Divider(),
+                            _InfoRow(icon: Icons.school_rounded, label: 'Department', value: department.isNotEmpty ? department : 'Not set'),
+                            const _Divider(),
+                            _InfoRow(icon: Icons.badge_rounded, label: 'Teacher ID', value: teacherId.isNotEmpty ? teacherId : 'Not set'),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ── Actions Card ───────────────────────
+                        _SectionCard(
+                          children: [
+                            _ActionTile(
+                              icon: Icons.assignment_outlined,
+                              label: 'Leave Requests',
+                              color: const Color(0xFF4F6EF7),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const TeacherLeaveRequestsPage()),
+                              ),
+                            ),
+                            const _Divider(),
+                            _ActionTile(
+                              icon: Icons.lock_outline_rounded,
+                              label: 'Change Password',
+                              color: const Color(0xFF1A1F3C),
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Coming soon')),
+                                );
+                              },
+                            ),
+                            const _Divider(),
+                            _ActionTile(
+                              icon: Icons.notifications_outlined,
+                              label: 'Notifications',
+                              color: const Color(0xFF1A1F3C),
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Coming soon')),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ── Logout ─────────────────────────────
+                        GestureDetector(
+                          onTap: () async {
+                            try {
+                              await FirebaseAuth.instance.signOut();
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (_) => const LoginPage()),
+                                (route) => false,
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Logout failed: $e')),
+                              );
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withOpacity(0.07),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 20),
+                                SizedBox(width: 10),
+                                Text('Sign Out', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.w600, fontSize: 15)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
     );
   }
+}
 
-  // --------------------------------------------------
-  // Profile Header
-  // --------------------------------------------------
-  Widget _profileHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF478AFF), Color(0xFF6A4BFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Column(
-        children: [
-          const CircleAvatar(
-            radius: 45,
-            backgroundColor: Colors.white,
-            child: Icon(
-              Icons.person,
-              size: 50,
-              color: Color(0xFF478AFF),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            "Teacher",
-            style: TextStyle(color: Colors.white70),
-          ),
-        ],
-      ),
-    );
-  }
+class _SectionCard extends StatelessWidget {
+  final List<Widget> children;
+  const _SectionCard({required this.children});
 
-  // --------------------------------------------------
-  // Information Card
-  // --------------------------------------------------
-  Widget _infoCard() {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
       ),
-      child: Column(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+      child: Column(children: children),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  const _InfoRow({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
         children: [
-          _infoRow(Icons.email, "Email", email),
-          const Divider(),
-          _infoRow(Icons.school, "Department", department),
-          const Divider(),
-          _infoRow(Icons.badge, "Teacher ID", teacherId),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4F6EF7).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: const Color(0xFF4F6EF7), size: 18),
+          ),
+          const SizedBox(width: 14),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF1A1F3C), fontSize: 14)),
+          const Spacer(),
+          Text(value, style: const TextStyle(color: Color(0xFF8A9BB5), fontSize: 14)),
         ],
       ),
     );
   }
+}
 
-  // --------------------------------------------------
-  // Settings & Actions
-  // --------------------------------------------------
-  Widget _settingsCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _ActionTile({required this.icon, required this.label, required this.color, required this.onTap});
 
-          // View Leave Requests
-          _actionTile(
-            icon: Icons.assignment_outlined,
-            label: "View Leave Requests",
-            color: Colors.blue,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TeacherLeaveRequestsPage(),
-                ),
-              );
-            },
-          ),
-
-          const Divider(),
-
-          // Change Password (Dummy)
-          _actionTile(
-            icon: Icons.lock_outline,
-            label: "Change Password",
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Change Password clicked")),
-              );
-            },
-          ),
-
-          const Divider(),
-
-          // Notifications (Dummy)
-          _actionTile(
-            icon: Icons.notifications_none,
-            label: "Notifications",
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Notifications clicked")),
-              );
-            },
-          ),
-
-          const Divider(),
-
-          // Logout
-          _actionTile(
-            icon: Icons.logout,
-            label: "Logout",
-            color: Colors.red,
-            onTap: () async {
-              try {
-                await FirebaseAuth.instance.signOut();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Logout failed: $e")),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  static Widget _infoRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.black54),
-        const SizedBox(width: 12),
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        const Spacer(),
-        Text(
-          value,
-          style: const TextStyle(color: Colors.black54),
-        ),
-      ],
-    );
-  }
-
-  Widget _actionTile({
-    required IconData icon,
-    required String label,
-    Color color = Colors.black,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: color),
-      title: Text(
-        label,
-        style: TextStyle(color: color),
-      ),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w500, fontSize: 14)),
+            const Spacer(),
+            Icon(Icons.chevron_right_rounded, color: Colors.grey.shade300, size: 20),
+          ],
+        ),
+      ),
     );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(height: 1, color: Color(0xFFF0F2F8), indent: 44);
   }
 }

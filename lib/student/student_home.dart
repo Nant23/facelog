@@ -11,136 +11,236 @@ class StudentHome extends StatefulWidget {
 }
 
 class _StudentHomeState extends State<StudentHome> {
+  final String uid = FirebaseAuth.instance.currentUser!.uid;
 
-  
+  /// Calculate real attendance stats from Firestore
+  Future<Map<String, dynamic>> _fetchAttendanceStats() async {
+    final classesSnap =
+        await FirebaseFirestore.instance.collection('classes').get();
+    int total = classesSnap.docs.length;
+    int present = classesSnap.docs
+        .where((doc) => ((doc['attended'] as List?) ?? []).contains(uid))
+        .length;
+    int absent = total - present;
+    double pct = total == 0 ? 0.0 : (present / total) * 100;
+    return {'total': total, 'present': present, 'absent': absent, 'pct': pct};
+  }
+
+  Color _attColor(double pct) {
+    if (pct >= 75) return const Color(0xFF22C55E);
+    if (pct >= 50) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xfff4f6ff),
+    final today = DateTime.now();
 
-      // ------------ APP BAR ------------
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6FB),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF1A1F3C),
+        foregroundColor: Colors.white,
         elevation: 0,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 16),
-          child: Icon(Icons.calendar_month, color: Colors.blue, size: 30),
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4F6EF7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.face_retouching_natural,
+                  color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'FaceLog',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  letterSpacing: 0.3),
+            ),
+          ],
         ),
-        title: const Text(
-          "Facelog",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.notifications_outlined), onPressed: () {}),
+          const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: Color(0xFF4F6EF7),
+              child: Text('S',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
+            ),
           ),
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.notifications_none, color: Colors.black),
-          )
         ],
       ),
-
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            const SizedBox(height: 10),
-
-            const Text(
-              "Hi, Student!",
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            const Text(
-              "Track your attendance and stay updated",
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            // ── Greeting ──────────────────────────────────
+            FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('students')
+                  .doc(uid)
+                  .get(),
+              builder: (context, snap) {
+                final name = snap.data?['name'] ?? 'Student';
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Good morning, $name 👋',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1F3C),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('EEEE, MMMM d').format(today),
+                      style: TextStyle(
+                          color: Colors.grey.shade500, fontSize: 13),
+                    ),
+                  ],
+                );
+              },
             ),
 
             const SizedBox(height: 20),
 
-            // ------------ ATTENDANCE CARD ------------
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: const LinearGradient(
-                  colors: [Color(0xff5271ff), Color(0xff675fff)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    "Overall Attendance",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "90%",
-                    style: TextStyle(
-                      fontSize: 48,
-                      height: 1,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+            // ── Attendance Card ────────────────────────────
+            FutureBuilder<Map<String, dynamic>>(
+              future: _fetchAttendanceStats(),
+              builder: (context, snap) {
+                final stats = snap.data;
+                final pct = (stats?['pct'] as double?) ?? 0.0;
+                final present = stats?['present'] ?? 0;
+                final absent = stats?['absent'] ?? 0;
+                final total = stats?['total'] ?? 0;
+                final color = _attColor(pct);
+                final status =
+                    pct >= 75 ? 'Good Standing' : pct >= 50 ? 'At Risk' : 'Critical';
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
-                      _attBlock("Present", "112"),
-                      _attBlock("Absent", "13"),
-                      _attBlock("Total", "125"),
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1A1F3C), Color(0xFF2D3561)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                          color: const Color(0xFF1A1F3C).withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8)),
                     ],
                   ),
-                ],
-              ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.bar_chart_rounded,
+                              color: Color(0xFF4F6EF7), size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Overall Attendance',
+                            style: TextStyle(
+                                color: Color(0xFF8A9BB5), fontSize: 14),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                  color: color,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      snap.hasData
+                          ? Text(
+                              '${pct.toStringAsFixed(1)}%',
+                              style: TextStyle(
+                                  fontSize: 52,
+                                  height: 1,
+                                  color: color,
+                                  fontWeight: FontWeight.bold),
+                            )
+                          : const CircularProgressIndicator(
+                              color: Colors.white),
+                      const SizedBox(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _AttBlock(
+                              label: 'Present',
+                              value: present.toString(),
+                              color: const Color(0xFF22C55E)),
+                          Container(
+                              width: 1, height: 30, color: Colors.white12),
+                          _AttBlock(
+                              label: 'Absent',
+                              value: absent.toString(),
+                              color: const Color(0xFFEF4444)),
+                          Container(
+                              width: 1, height: 30, color: Colors.white12),
+                          _AttBlock(
+                              label: 'Total',
+                              value: total.toString(),
+                              color: Colors.white70),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 28),
 
-            // ------------ TODAY'S CLASSES ------------
+            // ── Today's Classes ────────────────────────────
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   "Today's Classes",
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1F3C)),
                 ),
-                Icon(Icons.calendar_today, size: 20),
+                const Spacer(),
+                Text(
+                  DateFormat('MMM d').format(today),
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                ),
               ],
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(height: 14),
 
-            _todayClassesSection(),
-
-            const SizedBox(height: 25),
-
-            const Text(
-              "My Attendance",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            _TodayClassesSection(uid: uid),
 
             const SizedBox(height: 20),
           ],
@@ -148,63 +248,61 @@ class _StudentHomeState extends State<StudentHome> {
       ),
     );
   }
+}
 
-  // ------------ FETCH AND SHOW TODAY'S CLASSES ------------
-  Widget _todayClassesSection() {
-    final String uid = FirebaseAuth.instance.currentUser!.uid;
+// ─── Today's Classes Section ──────────────────────────────
+class _TodayClassesSection extends StatelessWidget {
+  final String uid;
+  const _TodayClassesSection({required this.uid});
 
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('students').doc(uid).get(),
-      builder: (context, studentSnapshot) {
-        if (!studentSnapshot.hasData) {
+      future:
+          FirebaseFirestore.instance.collection('students').doc(uid).get(),
+      builder: (context, studentSnap) {
+        if (!studentSnap.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-
-        if (!studentSnapshot.data!.exists) {
-          return const Text("Student record not found");
+        if (!studentSnap.data!.exists) {
+          return _emptyState('Student record not found');
         }
 
-        String group = studentSnapshot.data!['group'];
-
-        DateTime now = DateTime.now();
-        DateTime startOfDay = DateTime(now.year, now.month, now.day);
-        DateTime endOfDay = startOfDay.add(const Duration(days: 1));
+        final group = studentSnap.data!['group'] as String;
+        final now = DateTime.now();
+        final startOfDay = DateTime(now.year, now.month, now.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1));
 
         return StreamBuilder<QuerySnapshot>(
-          
           stream: FirebaseFirestore.instance
               .collection('classes')
               .where('groupid', isEqualTo: group)
-              .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+              .where('date',
+                  isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
               .where('date', isLessThan: Timestamp.fromDate(endOfDay))
               .orderBy('date')
               .snapshots(),
-          builder: (context, classSnapshot) {
-            if (!classSnapshot.hasData) {
+          builder: (context, classSnap) {
+            if (!classSnap.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
-
-            if (classSnapshot.data!.docs.isEmpty) {
-              return const Text("No classes today 🎉");
+            if (classSnap.data!.docs.isEmpty) {
+              return _emptyState('No classes scheduled today 🎉');
             }
 
             return Column(
-              children: classSnapshot.data!.docs.map((doc) {
-                List attendedList = doc['attended'] ?? [];
-                bool isAttended = attendedList.contains(uid);
+              children: classSnap.data!.docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final attended =
+                    ((data['attended'] as List?) ?? []).contains(uid);
+                final time = DateFormat.jm()
+                    .format((data['date'] as Timestamp).toDate());
 
-                Timestamp ts = doc['date'];
-                DateTime classTime = ts.toDate();
-                String formattedTime = DateFormat.jm().format(classTime);
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _classTile(
-                    title: doc['subject'],
-                    subtitle: doc['location'],
-                    time: formattedTime,
-                    attended: isAttended,
-                  ),
+                return _ClassTile(
+                  subjectId: data['subject'] ?? '',
+                  locationId: data['location'] ?? '',
+                  time: time,
+                  attended: attended,
                 );
               }).toList(),
             );
@@ -214,121 +312,173 @@ class _StudentHomeState extends State<StudentHome> {
     );
   }
 
-  // ------------ CLASS LIST TILE ------------
-  Widget _classTile({
-    required String title,
-    required String subtitle,
-    required String time,
-    required bool attended,
-  }) {
+  Widget _emptyState(String msg) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          )
-        ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            height: 50,
-            width: 50,
-            decoration: BoxDecoration(
-              color: attended
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              attended ? Icons.check_circle : Icons.menu_book,
-              color: attended ? Colors.green : Colors.blue,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Column(
-            children: [
-              Text(
-                time,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                attended ? "Attended" : "Pending",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: attended ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            ],
-          ),
+          Icon(Icons.event_available_rounded,
+              size: 40, color: Colors.grey.shade300),
+          const SizedBox(height: 10),
+          Text(msg,
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
         ],
       ),
     );
   }
 }
 
-// ------------ SMALL BOX (Present/Absent/Total) ------------
-class _attBlock extends StatelessWidget {
-  final String title;
-  final String value;
+// ─── Class Tile (resolves subject/location names) ─────────
+class _ClassTile extends StatelessWidget {
+  final String subjectId, locationId, time;
+  final bool attended;
+  const _ClassTile({
+    required this.subjectId,
+    required this.locationId,
+    required this.time,
+    required this.attended,
+  });
 
-  const _attBlock(this.title, this.value);
+  Future<List<String>> _resolve() async {
+    final subDoc = await FirebaseFirestore.instance
+        .collection('subjects')
+        .doc(subjectId)
+        .get();
+    final locDoc = await FirebaseFirestore.instance
+        .collection('locations')
+        .doc(locationId)
+        .get();
+    final subject = subDoc.exists ? subDoc['name'] as String : subjectId;
+    final location = locDoc.exists ? locDoc['name'] as String : locationId;
+    return [subject, location];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<String>>(
+      future: _resolve(),
+      builder: (context, snap) {
+        final subject = snap.data?[0] ?? subjectId;
+        final location = snap.data?[1] ?? locationId;
+        final color =
+            attended ? const Color(0xFF22C55E) : const Color(0xFF4F6EF7);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  attended
+                      ? Icons.check_circle_rounded
+                      : Icons.menu_book_rounded,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      subject,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF1A1F3C)),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_rounded,
+                            size: 12, color: Colors.grey.shade400),
+                        const SizedBox(width: 3),
+                        Text(location,
+                            style: TextStyle(
+                                color: Colors.grey.shade500, fontSize: 12)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    time,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: color),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      attended ? 'Attended' : 'Pending',
+                      style: TextStyle(
+                          color: color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Attendance Stat Block ────────────────────────────────
+class _AttBlock extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _AttBlock(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-          ),
-        ),
+        Text(value,
+            style: TextStyle(
+                fontSize: 22, color: color, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(label,
+            style:
+                const TextStyle(color: Color(0xFF8A9BB5), fontSize: 12)),
       ],
     );
   }

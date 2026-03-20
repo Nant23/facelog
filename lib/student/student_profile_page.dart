@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_print
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,15 +11,15 @@ class StudentProfilePage extends StatefulWidget {
 }
 
 class _StudentProfilePageState extends State<StudentProfilePage> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
 
-  String studentName = "";
-  String studentEmail = "";
-  String studentClass = "";
-
-  String? documentId; // <-- store actual firestore doc id
-  bool isLoading = true;
+  String _name = '';
+  String _email = '';
+  String _department = '';
+  String _group = '';
+  String? _documentId;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -32,15 +30,21 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   Future<void> _loadStudentData() async {
     try {
       final user = _auth.currentUser;
-
       if (user == null) {
-        setState(() => isLoading = false);
+        setState(() => _isLoading = false);
         return;
       }
 
-      print("Logged in UID: ${user.uid}");
+      // First try direct doc lookup by UID
+      final directDoc =
+          await _firestore.collection('students').doc(user.uid).get();
 
-      // 🔥 Query by uid field instead of document ID
+      if (directDoc.exists) {
+        _applyData(directDoc.id, directDoc.data()!, user.email ?? '');
+        return;
+      }
+
+      // Fall back to query by uid field
       final query = await _firestore
           .collection('students')
           .where('uid', isEqualTo: user.uid)
@@ -48,136 +52,279 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           .get();
 
       if (query.docs.isNotEmpty) {
-        final doc = query.docs.first;
-        final data = doc.data();
-
-        documentId = doc.id; // Save actual document ID
-
-        if (!mounted) return;
-
-        setState(() {
-          studentName = data['name'] ?? "";
-          studentEmail = data['email'] ?? user.email ?? "";
-          studentClass =
-              "${data['department'] ?? ""} - ${data['group'] ?? ""}";
-          isLoading = false;
-        });
+        _applyData(query.docs.first.id, query.docs.first.data(),
+            user.email ?? '');
       } else {
-        if (!mounted) return;
-
-        setState(() => isLoading = false);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Student data not found.")),
-        );
+        if (mounted) setState(() => _isLoading = false);
+        _showSnack('Student data not found', isError: true);
       }
     } catch (e) {
-      if (!mounted) return;
-
-      setState(() => isLoading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error loading data: $e")),
-      );
+      if (mounted) setState(() => _isLoading = false);
+      _showSnack('Error loading data: $e', isError: true);
     }
+  }
+
+  void _applyData(
+      String docId, Map<String, dynamic> data, String fallbackEmail) {
+    if (!mounted) return;
+    setState(() {
+      _documentId = docId;
+      _name = data['name'] ?? '';
+      _email = data['email'] ?? fallbackEmail;
+      _department = data['department'] ?? '';
+      _group = data['group'] ?? '';
+      _isLoading = false;
+    });
+  }
+
+  void _showSnack(String msg, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text(msg)),
+        ]),
+        backgroundColor:
+            isError ? const Color(0xFFEF4444) : const Color(0xFF22C55E),
+        behavior: SnackBarBehavior.floating,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _editName() {
+    final controller = TextEditingController(text: _name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Name',
+            style: TextStyle(
+                fontWeight: FontWeight.bold, color: Color(0xFF1A1F3C))),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Enter full name',
+            filled: true,
+            fillColor: const Color(0xFFF4F6FB),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: Color(0xFF4F6EF7), width: 2),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel',
+                style: TextStyle(color: Colors.grey.shade500)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final value = controller.text.trim();
+              if (value.isNotEmpty && _documentId != null) {
+                await _firestore
+                    .collection('students')
+                    .doc(_documentId)
+                    .update({'name': value});
+                setState(() => _name = value);
+                _showSnack('Name updated', isError: false);
+              }
+              if (mounted) Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F6EF7),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _logout() async {
+    await _auth.signOut();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
+    if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+          backgroundColor: Color(0xFFF4F6FB),
+          body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("My Profile"),
-        backgroundColor: Colors.blue,
-      ),
+      backgroundColor: const Color(0xFFF4F6FB),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const SizedBox(height: 20),
-
-            // PROFILE IMAGE
-            const CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.grey,
-              child: Icon(Icons.person, size: 60, color: Colors.white),
-            ),
-
-            const SizedBox(height: 30),
-
-            // NAME
-            ListTile(
-              leading: const Icon(Icons.person, color: Colors.blue),
-              title: const Text("Name"),
-              subtitle: Text(studentName),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  _editField("Name", studentName, (val) async {
-                    if (documentId != null) {
-                      await _firestore
-                          .collection('students')
-                          .doc(documentId)
-                          .update({'name': val});
-                    }
-
-                    setState(() => studentName = val);
-                  });
-                },
+            // ── Dark Hero Banner ─────────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 52, 20, 36),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1F3C),
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  // Avatar
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: const Color(0xFF4F6EF7),
+                        child: Text(
+                          _name.isNotEmpty
+                              ? _name[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: _editName,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF4F6EF7),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.edit_rounded,
+                                color: Colors.white, size: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    _name.isNotEmpty ? _name : 'Student',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _email,
+                    style: const TextStyle(
+                        color: Color(0xFF8A9BB5), fontSize: 13),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_department.isNotEmpty)
+                        _Badge(
+                            label: _department,
+                            icon: Icons.school_rounded),
+                      if (_department.isNotEmpty && _group.isNotEmpty)
+                        const SizedBox(width: 10),
+                      if (_group.isNotEmpty)
+                        _Badge(
+                            label: 'Group: $_group',
+                            icon: Icons.groups_rounded),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const Divider(),
 
-            // EMAIL
-            ListTile(
-              leading: const Icon(Icons.email, color: Colors.blue),
-              title: const Text("Email"),
-              subtitle: Text(studentEmail),
-            ),
-            const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Account Info',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF1A1F3C))),
+                  const SizedBox(height: 12),
 
-            // CLASS
-            ListTile(
-              leading: const Icon(Icons.school, color: Colors.blue),
-              title: const Text("Class"),
-              subtitle: Text(studentClass),
-            ),
-            const Divider(),
-
-            const SizedBox(height: 40),
-
-            // LOGOUT
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await _auth.signOut();
-
-                  if (!mounted) return;
-
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const LoginPage()),
-                    (route) => false,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  // Info cards
+                  _InfoCard(
+                    icon: Icons.person_outline_rounded,
+                    label: 'Full Name',
+                    value: _name.isNotEmpty ? _name : '—',
+                    onEdit: _editName,
                   ),
-                ),
-                child: const Text(
-                  "Logout",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
+                  _InfoCard(
+                    icon: Icons.email_outlined,
+                    label: 'Email Address',
+                    value: _email.isNotEmpty ? _email : '—',
+                  ),
+                  _InfoCard(
+                    icon: Icons.school_rounded,
+                    label: 'Department',
+                    value: _department.isNotEmpty ? _department : '—',
+                  ),
+                  _InfoCard(
+                    icon: Icons.groups_rounded,
+                    label: 'Group',
+                    value: _group.isNotEmpty ? _group : '—',
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Logout Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _logout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEF4444),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.logout_rounded),
+                          SizedBox(width: 8),
+                          Text('Sign Out',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -185,34 +332,101 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       ),
     );
   }
+}
 
-  void _editField(String field, String currentValue,
-      Function(String) onSave) {
-    final controller = TextEditingController(text: currentValue);
+// ─── Widgets ──────────────────────────────────────────────
+class _Badge extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _Badge({required this.label, required this.icon});
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Edit $field"),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(hintText: "Enter $field"),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white70, size: 14),
+          const SizedBox(width: 6),
+          Text(label,
+              style:
+                  const TextStyle(color: Colors.white70, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  final VoidCallback? onEdit;
+  const _InfoCard(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04), blurRadius: 6)
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4F6EF7).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child:
+                Icon(icon, color: const Color(0xFF4F6EF7), size: 18),
           ),
-          ElevatedButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.isNotEmpty) {
-                onSave(value);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text("Save"),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: Color(0xFF8A9BB5), fontSize: 11)),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Color(0xFF1A1F3C))),
+              ],
+            ),
           ),
+          if (onEdit != null)
+            GestureDetector(
+              onTap: onEdit,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4F6EF7).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.edit_rounded,
+                    color: Color(0xFF4F6EF7), size: 16),
+              ),
+            ),
         ],
       ),
     );

@@ -1,3 +1,4 @@
+
 import 'package:facelog/firebase_options.dart';
 import 'package:facelog/login_page.dart';
 import 'package:flutter/material.dart';
@@ -49,34 +50,37 @@ Future<void> showLocalNotification(RemoteMessage message) async {
   );
 
   await localNotifications.show(
-    DateTime.now().millisecond,
+    DateTime.now().millisecondsSinceEpoch ~/ 1000,
     message.notification?.title,
     message.notification?.body,
     notifDetails,
   );
 }
 
+/// ------------------------
+/// MAIN FUNCTION
+/// ------------------------
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ------------------------
-  // Firebase Initialization
-  // ------------------------
+  // Firebase init
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ------------------------
-  // Firebase Messaging Setup
-  // ------------------------
+  // Background handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Local notification setup
-  await setupLocalNotifications();
-
+  // Run app FIRST (important for speed)
   runApp(const MyApp());
+
+  // Setup notifications AFTER UI loads
+  await setupLocalNotifications();
 }
 
+/// ------------------------
+/// APP ROOT
+/// ------------------------
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -85,50 +89,83 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+
   @override
   void initState() {
     super.initState();
 
-    // 🔔 Request notification permission
-    requestNotificationPermission();
+    // Run async setup WITHOUT blocking UI
+    Future.microtask(() {
+      initNotifications();
+    });
+  }
 
-    // 🔔 Listen for foreground notifications
+  /// ------------------------
+  /// INIT NOTIFICATIONS (NON-BLOCKING)
+  /// ------------------------
+  Future<void> initNotifications() async {
+    print("Step 1: Request Permission");
+    await requestNotificationPermission();
+
+    print("Step 2: Setup Listeners");
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print("Foreground message received!");
       showLocalNotification(message);
     });
 
-    // 🔔 When app opened by tapping the notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print("🚀 Notification Clicked!");
     });
 
-    // 🔥 Retrieve FCM token
-    getFcmToken();
+    print("Step 3: Get Token");
+    await getFcmToken();
+
+    print("✅ Notification setup complete");
   }
 
+  /// ------------------------
+  /// REQUEST PERMISSION
+  /// ------------------------
   Future<void> requestNotificationPermission() async {
-    NotificationSettings settings =
-        await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      sound: true,
-      badge: true,
-    );
+    try {
+      NotificationSettings settings =
+          await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        sound: true,
+        badge: true,
+      );
 
-    print("🔐 Notification Permission: ${settings.authorizationStatus}");
+      print("🔐 Permission: ${settings.authorizationStatus}");
+    } catch (e) {
+      print("Permission error: $e");
+    }
   }
 
+  /// ------------------------
+  /// GET FCM TOKEN (WITH TIMEOUT)
+  /// ------------------------
   Future<void> getFcmToken() async {
-    String? token = await FirebaseMessaging.instance.getToken();
-    print("FCM Token: $token");
+    try {
+      String? token = await FirebaseMessaging.instance
+          .getToken()
+          .timeout(const Duration(seconds: 5));
 
-    // TODO: Save this token to Firestore under the user's document
+      print("📱 FCM Token: $token");
+
+      // TODO: Save token to Firestore
+    } catch (e) {
+      print("❌ FCM Token error: $e");
+    }
   }
 
+  /// ------------------------
+  /// UI
+  /// ------------------------
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Facelog Attendance',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
@@ -136,3 +173,4 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+

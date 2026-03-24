@@ -116,11 +116,17 @@ class TeacherDashboardPage extends StatelessWidget {
                           : null,
                       builder: (context, snap) {
                         final teacherName = snap.data?['name'] ?? 'Teacher';
+                        final hour = DateTime.now().hour;
+                        final greeting = hour < 12
+                            ? 'Good morning'
+                            : hour < 17
+                                ? 'Good afternoon'
+                                : 'Good evening';
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Good morning, $teacherName 👋',
+                              '$greeting, $teacherName 👋',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -236,10 +242,22 @@ class TeacherDashboardPage extends StatelessWidget {
                                 ]),
                                 builder: (context, snap) {
                                   if (!snap.hasData) return const SizedBox();
+                                  final now = DateTime.now();
+                                  final classStart = (doc['date'] as Timestamp).toDate();
+                                  final classEnd = classStart.add(Duration(minutes: doc['duration'] as int? ?? 0));
+                                  final String state;
+                                  if (now.isBefore(classStart)) {
+                                    state = 'scheduled';
+                                  } else if (now.isAfter(classEnd)) {
+                                    state = 'completed';
+                                  } else {
+                                    state = 'ongoing';
+                                  }
                                   return _ScheduleTile(
                                     title: snap.data![0],
                                     subtitle: snap.data![1],
                                     time: time,
+                                    state: state,
                                   );
                                 },
                               );
@@ -323,18 +341,26 @@ class TeacherDashboardPage extends StatelessWidget {
 
 // ─── Schedule Tile ────────────────────────────────────────
 class _ScheduleTile extends StatelessWidget {
-  final String title, subtitle, time;
-  const _ScheduleTile({required this.title, required this.subtitle, required this.time});
+  final String title, subtitle, time, state;
+  const _ScheduleTile({required this.title, required this.subtitle, required this.time, required this.state});
 
   @override
   Widget build(BuildContext context) {
+    final stateColor = state == 'ongoing'
+        ? const Color(0xFF22C55E)
+        : state == 'scheduled'
+            ? const Color(0xFF4F6EF7)
+            : const Color(0xFF8A9BB5);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: state == 'ongoing'
+            ? const Color(0xFF22C55E).withOpacity(0.4)
+            : Colors.white.withOpacity(0.1)),
       ),
       child: Row(
         children: [
@@ -342,7 +368,7 @@ class _ScheduleTile extends StatelessWidget {
             width: 3,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF4F6EF7),
+              color: stateColor,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -356,16 +382,30 @@ class _ScheduleTile extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4F6EF7).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              time,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4F6EF7).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(time, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: stateColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  state[0].toUpperCase() + state.substring(1),
+                  style: TextStyle(color: stateColor, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
         ],
       ),

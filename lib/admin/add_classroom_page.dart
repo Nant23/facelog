@@ -62,6 +62,7 @@ class _AddClassroomPageState extends State<AddClassroomPage> {
         'subject': selectedSubjectId,
         'teacherId': selectedTeacherId,
         'duration': selectedDuration!.inMinutes,
+        'state': 'scheduled',
       });
 
       if (mounted) {

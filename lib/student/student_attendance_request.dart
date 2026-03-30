@@ -633,12 +633,27 @@ class _MyRequestsList extends StatelessWidget {
           .orderBy('submittedAt', descending: true)
           .snapshots(),
       builder: (context, snap) {
-        if (!snap.hasData) {
+        // 1. Show spinner only on the very first load (no data yet)
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Pending count badge
-        final docs = snap.data!.docs;
+        // 2. Handle errors gracefully
+        if (snap.hasError) {
+          return Center(
+            child: Text(
+              'Failed to load requests.\n${snap.error}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFFEF4444)),
+            ),
+          );
+        }
+
+        // 3. Filter out docs where submittedAt is still null (pending server write)
+        final docs = (snap.data?.docs ?? []).where((d) {
+          return (d.data() as Map<String, dynamic>)['submittedAt'] != null;
+        }).toList();
+
         final pendingCount =
             docs.where((d) => (d['status'] ?? 'pending') == 'pending').length;
 
@@ -650,8 +665,7 @@ class _MyRequestsList extends StatelessWidget {
                 Icon(Icons.inbox_rounded, size: 60, color: Colors.grey.shade300),
                 const SizedBox(height: 12),
                 Text('No requests yet',
-                    style: TextStyle(
-                        color: Colors.grey.shade400, fontSize: 16)),
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 16)),
               ],
             ),
           );

@@ -98,12 +98,15 @@ class _TeacherLeaveRequestsPageState
                   child: _ErrorView(message: 'Error loading requests.\n\${snap.error}'),
                 );
               }
-              if (!snap.hasData) {
-                return const Center(
-                    child: CircularProgressIndicator());
+              // Only show spinner on the very first load
+              if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+                return const Center(child: CircularProgressIndicator());
               }
 
-              var docs = snap.data!.docs;
+              // Filter out docs where submittedAt is still null (pending server write)
+              var docs = (snap.data?.docs ?? []).where((d) {
+                return (d.data() as Map<String, dynamic>)['submittedAt'] != null;
+              }).toList();
 
               // Client-side status filter
               if (_filter != 'all') {
@@ -114,11 +117,9 @@ class _TeacherLeaveRequestsPageState
                     .toList();
               }
 
-              final pendingCount = snap.data!.docs
-                  .where((d) =>
-                      (d['status'] as String? ?? 'pending') ==
-                      'pending')
-                  .length;
+              final pendingCount = (snap.data?.docs ?? [])
+                .where((d) => (d['status'] as String? ?? 'pending') == 'pending')
+                .length;
 
               return _buildScaffold(
                 pendingCount: pendingCount,
@@ -134,8 +135,7 @@ class _TeacherLeaveRequestsPageState
                         itemCount: docs.length,
                         itemBuilder: (context, index) {
                           final doc = docs[index];
-                          final data =
-                              doc.data() as Map<String, dynamic>;
+                          final data = doc.data() as Map<String, dynamic>;
                           return _RequestTile(
                             docId: doc.id,
                             data: data,
@@ -143,8 +143,7 @@ class _TeacherLeaveRequestsPageState
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      _RequestDetailPage(
+                                  builder: (_) => _RequestDetailPage(
                                     docId: doc.id,
                                     data: data,
                                   ),

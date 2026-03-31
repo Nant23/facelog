@@ -19,13 +19,6 @@ class _AdminTeachersPageState extends State<AdminTeachersPage> {
     super.dispose();
   }
 
-  Future<int> _classCountForTeacher(String teacherId) async {
-    final snap = await FirebaseFirestore.instance
-        .collection('classes')
-        .where('teacherId', isEqualTo: teacherId)
-        .get();
-    return snap.docs.length;
-  }
 
   void _openAddTeacher() {
     Navigator.push(

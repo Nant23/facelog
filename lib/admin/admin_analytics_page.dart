@@ -56,57 +56,82 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
     final fs = FirebaseFirestore.instance;
 
     final studentsSnap = await fs.collection('students').get();
-    final classesSnap = await fs.collection('classes').get();
+    final classesSnap  = await fs.collection('classes').get();
     final teachersSnap = await fs.collection('teachers').get();
-    final groupsSnap = await fs.collection('groups').get();
+    final groupsSnap   = await fs.collection('groups').get();
 
     final studentDocs = studentsSnap.docs;
-    final classDocs = classesSnap.docs;
+    final classDocs   = classesSnap.docs;
 
-    // ── totals
     totalStudents = studentDocs.length;
-    totalClasses = classDocs.length;
+    totalClasses  = classDocs.length;
     totalTeachers = teachersSnap.docs.length;
 
-    // ── classes by day-of-week
+    // ── Classes by day-of-week
     final dowCounts = List.filled(7, 0);
     for (final c in classDocs) {
-      final ts = c['date'];
+      final ts = c.data()['date'];
       if (ts is Timestamp) {
-        final dow = ts.toDate().weekday - 1; // 0=Mon
-        dowCounts[dow]++;
+        dowCounts[ts.toDate().weekday - 1]++;
       }
     }
     classesByDow = dowCounts;
 
-    // ── per-student attendance
+    // ── Pre-build attended ID sets per class (handles both
+    //    plain String IDs and DocumentReference values)
+    final Map<String, Set<String>> attendedByClass = {};
+    for (final c in classDocs) {
+      final raw = c.data()['attended'];
+      final Set<String> ids = {};
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is String) {
+            ids.add(item);
+          } else if (item is DocumentReference) {
+            ids.add(item.id);
+          }
+        }
+      }
+      attendedByClass[c.id] = ids;
+    }
+
+    // ── Per-student attendance across ALL classes
     final List<_StudentAtt> atts = [];
     for (final s in studentDocs) {
+      final data  = s.data();
+      final sName = (data['name']  as String?) ?? '—';
+      final sGroup = (data['group'] as String?) ?? '';
+
       int attended = 0;
       for (final c in classDocs) {
-        final list = (c['attended'] as List?) ?? [];
-        if (list.contains(s.id)) attended++;
+        if (attendedByClass[c.id]?.contains(s.id) ?? false) {
+          attended++;
+        }
       }
-      final pct = classDocs.isEmpty ? 0.0 : (attended / classDocs.length) * 100;
+
+      final total = classDocs.length;
+      final pct   = total == 0 ? 0.0 : (attended / total) * 100;
+
       atts.add(_StudentAtt(
-        id: s.id,
-        name: (s['name'] as String?) ?? '—',
-        group: (s['group'] as String?) ?? '—',
-        pct: pct,
+        id:       s.id,
+        name:     sName,
+        group:    sGroup,
+        pct:      pct,
         attended: attended,
-        total: classDocs.length,
+        total:    total,
       ));
     }
 
-    goodCount = atts.where((a) => a.pct >= 75).length;
-    atRiskCount = atts.where((a) => a.pct >= 50 && a.pct < 75).length;
+    goodCount     = atts.where((a) => a.pct >= 75).length;
+    atRiskCount   = atts.where((a) => a.pct >= 50 && a.pct < 75).length;
     criticalCount = atts.where((a) => a.pct < 50).length;
 
     studentAttendances = atts..sort((a, b) => b.pct.compareTo(a.pct));
+
     topAbsentees = [...atts]..sort((a, b) => a.pct.compareTo(b.pct));
     if (topAbsentees.length > 8) topAbsentees = topAbsentees.sublist(0, 8);
 
-    // ── per-group average attendance
+    // ── Per-group average attendance
     final List<_GroupAtt> groups = [];
     for (final g in groupsSnap.docs) {
       final groupStudents = atts.where((a) => a.group == g.id).toList();
@@ -114,23 +139,17 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
           ? 0.0
           : groupStudents.map((a) => a.pct).reduce((a, b) => a + b) /
               groupStudents.length;
+      final gData = g.data();
       groups.add(_GroupAtt(
-        id: g.id,
-        name: (g['name'] as String?) ?? g.id,
-        avgPct: avg,
+        id:           g.id,
+        name:         (gData['name'] as String?) ?? g.id,
+        avgPct:       avg,
         studentCount: groupStudents.length,
       ));
     }
     groupAttendances = groups..sort((a, b) => b.avgPct.compareTo(a.avgPct));
 
     if (mounted) setState(() => _isLoading = false);
-  }
-
-  // ── Colour helpers ──────────────────────────────────────────
-  Color _attColor(double pct) {
-    if (pct >= 75) return const Color(0xFF22C55E);
-    if (pct >= 50) return const Color(0xFFF59E0B);
-    return const Color(0xFFEF4444);
   }
 
   @override
@@ -188,8 +207,7 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1A1F3C))),
                   Text('Attendance insights & trends',
-                      style:
-                          TextStyle(fontSize: 12, color: Color(0xFF8A9BB5))),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8A9BB5))),
                 ],
               ),
               const Spacer(),
@@ -213,8 +231,6 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
             ],
           ),
           const SizedBox(height: 16),
-
-          // Stat chips row
           Row(
             children: [
               _StatChip(
@@ -252,7 +268,8 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
         unselectedLabelColor: const Color(0xFF8A9BB5),
         indicatorColor: const Color(0xFF4F6EF7),
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        labelStyle:
+            const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         tabs: const [
           Tab(text: 'Overview'),
           Tab(text: 'Students'),
@@ -269,26 +286,25 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Pie chart — attendance distribution
-          _SectionTitle(title: 'Attendance Distribution', icon: Icons.pie_chart_rounded),
+          _SectionTitle(
+              title: 'Attendance Distribution',
+              icon: Icons.pie_chart_rounded),
           const SizedBox(height: 12),
           _AttendancePieCard(
             good: goodCount,
             atRisk: atRiskCount,
             critical: criticalCount,
           ),
-
           const SizedBox(height: 20),
-
-          // Bar chart — classes by day
-          _SectionTitle(title: 'Classes by Day of Week', icon: Icons.calendar_today_rounded),
+          _SectionTitle(
+              title: 'Classes by Day of Week',
+              icon: Icons.calendar_today_rounded),
           const SizedBox(height: 12),
           _ClassesByDowChart(counts: classesByDow),
-
           const SizedBox(height: 20),
-
-          // Top absentees
-          _SectionTitle(title: 'Lowest Attendance', icon: Icons.warning_amber_rounded),
+          _SectionTitle(
+              title: 'Lowest Attendance',
+              icon: Icons.warning_amber_rounded),
           const SizedBox(height: 12),
           ...topAbsentees.map((s) => _AttendanceListTile(att: s)),
         ],
@@ -301,23 +317,22 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
     if (studentAttendances.isEmpty) {
       return const Center(child: Text('No student data'));
     }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Horizontal bar chart
-          _SectionTitle(title: 'Student Attendance Bars', icon: Icons.bar_chart_rounded),
+          _SectionTitle(
+              title: 'Student Attendance Bars',
+              icon: Icons.bar_chart_rounded),
           const SizedBox(height: 12),
           _StudentBarChart(students: studentAttendances),
-
           const SizedBox(height: 20),
-
-          // Full student list with progress bars
-          _SectionTitle(title: 'All Students', icon: Icons.list_rounded),
+          _SectionTitle(
+              title: 'All Students', icon: Icons.list_rounded),
           const SizedBox(height: 12),
-          ...studentAttendances.map((s) => _AttendanceListTile(att: s, showGroup: true)),
+          ...studentAttendances
+              .map((s) => _AttendanceListTile(att: s, showGroup: true)),
         ],
       ),
     );
@@ -328,19 +343,19 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage>
     if (groupAttendances.isEmpty) {
       return const Center(child: Text('No group data'));
     }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(title: 'Average Attendance per Group', icon: Icons.groups_rounded),
+          _SectionTitle(
+              title: 'Average Attendance per Group',
+              icon: Icons.groups_rounded),
           const SizedBox(height: 12),
           _GroupBarChart(groups: groupAttendances),
-
           const SizedBox(height: 20),
-
-          _SectionTitle(title: 'Group Breakdown', icon: Icons.list_alt_rounded),
+          _SectionTitle(
+              title: 'Group Breakdown', icon: Icons.list_alt_rounded),
           const SizedBox(height: 12),
           ...groupAttendances.map((g) => _GroupTile(group: g)),
         ],
@@ -371,11 +386,12 @@ class _GroupAtt {
   final String id, name;
   final double avgPct;
   final int studentCount;
-  const _GroupAtt(
-      {required this.id,
-      required this.name,
-      required this.avgPct,
-      required this.studentCount});
+  const _GroupAtt({
+    required this.id,
+    required this.name,
+    required this.avgPct,
+    required this.studentCount,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -407,11 +423,12 @@ class _StatChip extends StatelessWidget {
   final String label, value;
   final IconData icon;
   final Color color;
-  const _StatChip(
-      {required this.label,
-      required this.value,
-      required this.icon,
-      required this.color});
+  const _StatChip({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -422,7 +439,8 @@ class _StatChip extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04), blurRadius: 6)
           ],
         ),
         child: Column(
@@ -448,8 +466,11 @@ class _StatChip extends StatelessWidget {
 // ── Attendance Pie Chart ─────────────────────────────────────
 class _AttendancePieCard extends StatelessWidget {
   final int good, atRisk, critical;
-  const _AttendancePieCard(
-      {required this.good, required this.atRisk, required this.critical});
+  const _AttendancePieCard({
+    required this.good,
+    required this.atRisk,
+    required this.critical,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -460,7 +481,8 @@ class _AttendancePieCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05), blurRadius: 10)
         ],
       ),
       child: total == 0
@@ -495,7 +517,8 @@ class _AttendancePieCard extends StatelessWidget {
                                   color: Color(0xFF1A1F3C))),
                           const Text('students',
                               style: TextStyle(
-                                  color: Color(0xFF8A9BB5), fontSize: 12)),
+                                  color: Color(0xFF8A9BB5),
+                                  fontSize: 12)),
                         ],
                       ),
                     ),
@@ -529,8 +552,11 @@ class _PieLegend extends StatelessWidget {
   final Color color;
   final String label;
   final int count;
-  const _PieLegend(
-      {required this.color, required this.label, required this.count});
+  const _PieLegend({
+    required this.color,
+    required this.label,
+    required this.count,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -577,14 +603,14 @@ class _PieChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 10;
-    const innerRadius = 0.55; // donut hole ratio
+    const innerRadius = 0.55;
 
     double startAngle = -math.pi / 2;
     for (final section in sections) {
       if (section.value == 0) continue;
       final sweep = (section.value / total) * 2 * math.pi;
 
-      final outerPaint = Paint()
+      final paint = Paint()
         ..color = section.color
         ..style = PaintingStyle.fill;
 
@@ -611,9 +637,9 @@ class _PieChartPainter extends CustomPainter {
         )
         ..close();
 
-      canvas.drawPath(path, outerPaint);
+      canvas.drawPath(path, paint);
 
-      // small gap
+      // Gap between segments
       final gapPaint = Paint()
         ..color = const Color(0xFFF4F6FB)
         ..style = PaintingStyle.stroke
@@ -630,7 +656,7 @@ class _PieChartPainter extends CustomPainter {
 
 // ── Classes by Day of Week Bar Chart ────────────────────────
 class _ClassesByDowChart extends StatelessWidget {
-  final List<int> counts; // 7 items, 0=Mon
+  final List<int> counts;
   const _ClassesByDowChart({required this.counts});
 
   @override
@@ -644,7 +670,8 @@ class _ClassesByDowChart extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05), blurRadius: 10)
         ],
       ),
       child: Column(
@@ -672,8 +699,7 @@ class _ClassesByDowChart extends StatelessWidget {
                           ),
                         const SizedBox(height: 4),
                         AnimatedContainer(
-                          duration:
-                              Duration(milliseconds: 400 + i * 60),
+                          duration: Duration(milliseconds: 400 + i * 60),
                           curve: Curves.easeOut,
                           height: heightRatio * 110,
                           decoration: BoxDecoration(
@@ -714,7 +740,6 @@ class _StudentBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Show top 10 for readability
     final display = students.take(10).toList();
 
     return Container(
@@ -723,7 +748,8 @@ class _StudentBarChart extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05), blurRadius: 10)
         ],
       ),
       child: Column(
@@ -733,8 +759,8 @@ class _StudentBarChart extends StatelessWidget {
             display.length < students.length
                 ? 'Top ${display.length} students (highest first)'
                 : 'All ${display.length} students',
-            style: const TextStyle(
-                fontSize: 12, color: Color(0xFF8A9BB5)),
+            style:
+                const TextStyle(fontSize: 12, color: Color(0xFF8A9BB5)),
           ),
           const SizedBox(height: 14),
           ...display.map((s) {
@@ -764,10 +790,8 @@ class _StudentBarChart extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
                         value: s.pct / 100,
-                        backgroundColor:
-                            color.withOpacity(0.12),
-                        valueColor:
-                            AlwaysStoppedAnimation(color),
+                        backgroundColor: color.withOpacity(0.12),
+                        valueColor: AlwaysStoppedAnimation(color),
                         minHeight: 14,
                       ),
                     ),
@@ -802,7 +826,8 @@ class _GroupBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (groups.isEmpty) return const SizedBox.shrink();
-    final maxVal = groups.map((g) => g.avgPct).reduce(math.max).clamp(1.0, 100.0);
+    final maxVal =
+        groups.map((g) => g.avgPct).reduce(math.max).clamp(1.0, 100.0);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
@@ -810,7 +835,8 @@ class _GroupBarChart extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05), blurRadius: 10)
         ],
       ),
       child: Column(
@@ -862,9 +888,7 @@ class _GroupBarChart extends StatelessWidget {
             children: groups.map((g) {
               return Expanded(
                 child: Text(
-                  g.name.length > 6
-                      ? g.name.substring(0, 6)
-                      : g.name,
+                  g.name.length > 6 ? g.name.substring(0, 6) : g.name,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       fontSize: 10, color: Color(0xFF8A9BB5)),
@@ -882,7 +906,8 @@ class _GroupBarChart extends StatelessWidget {
 class _AttendanceListTile extends StatelessWidget {
   final _StudentAtt att;
   final bool showGroup;
-  const _AttendanceListTile({required this.att, this.showGroup = false});
+  const _AttendanceListTile(
+      {required this.att, this.showGroup = false});
 
   Color get _color {
     if (att.pct >= 75) return const Color(0xFF22C55E);
@@ -915,7 +940,7 @@ class _AttendanceListTile extends StatelessWidget {
             radius: 20,
             backgroundColor: _color.withOpacity(0.12),
             child: Text(
-              att.name[0].toUpperCase(),
+              att.name.isNotEmpty ? att.name[0].toUpperCase() : '?',
               style: TextStyle(
                   color: _color,
                   fontWeight: FontWeight.bold,
@@ -939,8 +964,7 @@ class _AttendanceListTile extends StatelessWidget {
                     if (showGroup)
                       Text(att.group,
                           style: const TextStyle(
-                              color: Color(0xFF8A9BB5),
-                              fontSize: 11)),
+                              color: Color(0xFF8A9BB5), fontSize: 11)),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -1027,8 +1051,7 @@ class _GroupTile extends StatelessWidget {
               color: _color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child:
-                Icon(Icons.groups_rounded, color: _color, size: 20),
+            child: Icon(Icons.groups_rounded, color: _color, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(

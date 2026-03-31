@@ -435,6 +435,7 @@ class _RequestDetailPageState
   Future<void> _updateRequest(String newStatus) async {
     setState(() => _isProcessing = true);
     try {
+      // 1. Update the request status
       await FirebaseFirestore.instance
           .collection('attendance_requests')
           .doc(widget.docId)
@@ -443,6 +444,22 @@ class _RequestDetailPageState
         'adminNote': _noteController.text.trim(),
         'reviewedAt': FieldValue.serverTimestamp(),
       });
+
+      // 2. If approved, mark student present in attendance
+      if (newStatus == 'approved') {
+        final classId = widget.data['classId'] as String?;
+        final studentId = widget.data['studentId'] as String?;
+
+        if (classId != null && studentId != null) {
+          await FirebaseFirestore.instance
+              .collection('classes')
+              .doc(classId)                                    // classId IS the doc ID
+              .update({
+            'attended': FieldValue.arrayUnion([studentId]),   // add uid to attended array
+          });
+        }
+      }
+
       setState(() => _currentStatus = newStatus);
 
       if (mounted) {
@@ -450,11 +467,11 @@ class _RequestDetailPageState
           SnackBar(
             content: Row(children: [
               Icon(
-                  newStatus == 'approved'
-                      ? Icons.check_circle_rounded
-                      : Icons.cancel_rounded,
-                  color: Colors.white,
-                  size: 18),
+                newStatus == 'approved'
+                    ? Icons.check_circle_rounded
+                    : Icons.cancel_rounded,
+                color: Colors.white,
+                size: 18),
               const SizedBox(width: 10),
               Text('Request ${newStatus}'),
             ]),

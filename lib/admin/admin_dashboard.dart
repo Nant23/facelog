@@ -7,11 +7,19 @@ import 'add_classroom_page.dart';
 import 'admin_classes_page.dart';
 import 'create_subject_page.dart';
 import 'add_teacher_page.dart';
+import 'admin_analytics_page.dart';
+import 'admin_teachers_page.dart';
 import '../login_page.dart';
 
-/// =====================================================
-/// ADMIN DASHBOARD — Main entry point with Drawer nav
-/// =====================================================
+// ─── Index map (must stay in sync with _pages) ────────────
+// 0 = Dashboard
+// 1 = Students
+// 2 = Analytics
+// 3 = Classes
+// 4 = Add Class
+// 5 = Subjects
+// 6 = Teachers list
+
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
@@ -22,22 +30,34 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   int _currentIndex = 0;
 
-  final List<_NavItem> _navItems = const [
-    _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard'),
-    _NavItem(icon: Icons.groups_rounded, label: 'Students'),
-    _NavItem(icon: Icons.class_rounded, label: 'Classes'),
-    _NavItem(icon: Icons.add_box_rounded, label: 'Add Class'),
-    _NavItem(icon: Icons.menu_book_rounded, label: 'Subjects'),
-    _NavItem(icon: Icons.person_add_rounded, label: 'Teachers'),
+  // Only 4 items appear in the bottom bar
+  static const List<_NavItem> _bottomNavItems = [
+    _NavItem(icon: Icons.dashboard_rounded,  label: 'Dashboard'),
+    _NavItem(icon: Icons.groups_rounded,     label: 'Students'),
+    _NavItem(icon: Icons.bar_chart_rounded,  label: 'Analytics'),
+    _NavItem(icon: Icons.class_rounded,      label: 'Classes'),
+  ];
+
+  // All items appear in the drawer — indices match _pages exactly
+  static const List<_NavItem> _allNavItems = [
+    _NavItem(icon: Icons.dashboard_rounded,  label: 'Dashboard'),   // 0
+    _NavItem(icon: Icons.groups_rounded,     label: 'Students'),    // 1
+    _NavItem(icon: Icons.bar_chart_rounded,  label: 'Analytics'),   // 2
+    _NavItem(icon: Icons.class_rounded,      label: 'Classes'),     // 3
+    _NavItem(icon: Icons.add_box_rounded,    label: 'Add Class'),   // 4
+    _NavItem(icon: Icons.menu_book_rounded,  label: 'Subjects'),    // 5
+    _NavItem(icon: Icons.person_rounded,     label: 'Teachers'),    // 6
   ];
 
   late final List<Widget> _pages = [
-    _AdminHomePage(onNavigate: _setIndex),
-    const AdminStudentsPage(),
-    const AdminClassesPage(),
-    const AddClassroomPage(),
-    const CreateSubjectPage(),
-    AddTeacherPage(),
+    _AdminHomePage(onNavigate: _setIndex),  // 0
+    const AdminStudentsPage(),              // 1
+    const AdminAnalyticsPage(),             // 2
+    const AdminClassesPage(),               // 3
+    const AddClassroomPage(),               // 4
+    const CreateSubjectPage(),              // 5
+    const AdminTeachersPage(),
+    AddTeacherPage(),            // 6
   ];
 
   void _setIndex(int index) => setState(() => _currentIndex = index);
@@ -68,10 +88,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
-          ),
+          IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {}),
           const Padding(
             padding: EdgeInsets.only(right: 12),
             child: CircleAvatar(
@@ -84,7 +101,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       drawer: _AppDrawer(
         currentIndex: _currentIndex,
-        navItems: _navItems,
+        navItems: _allNavItems,
         onNavigate: (i) {
           _setIndex(i);
           Navigator.pop(context);
@@ -99,7 +116,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
-        items: _navItems,
+        bottomItems: _bottomNavItems,
         onTap: _setIndex,
       ),
     );
@@ -125,12 +142,8 @@ class _AppDrawer extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4F6EF7),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(color: const Color(0xFF4F6EF7), borderRadius: BorderRadius.circular(16)),
                   child: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 34),
                 ),
                 const SizedBox(height: 12),
@@ -177,7 +190,7 @@ class _AppDrawer extends StatelessWidget {
                             if (isSelected) ...[
                               const Spacer(),
                               Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                            ]
+                            ],
                           ],
                         ),
                       ),
@@ -231,12 +244,15 @@ class _NavItem {
   const _NavItem({required this.icon, required this.label});
 }
 
-// ─── Bottom Navigation ────────────────────────────────────
+// ─── Bottom Navigation (4 items only) ────────────────────
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
-  final List<_NavItem> items;
+  final List<_NavItem> bottomItems;
   final ValueChanged<int> onTap;
-  const _BottomNav({required this.currentIndex, required this.items, required this.onTap});
+  // bottom items 0-3 map directly to global page indices 0-3
+  static const _globalIndices = [0, 1, 2, 3];
+
+  const _BottomNav({required this.currentIndex, required this.bottomItems, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -249,14 +265,15 @@ class _BottomNav extends StatelessWidget {
       padding: const EdgeInsets.only(top: 10, bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (i) {
-          final selected = i == currentIndex;
+        children: List.generate(bottomItems.length, (i) {
+          final globalIdx = _globalIndices[i];
+          final selected = currentIndex == globalIdx;
           return GestureDetector(
-            onTap: () => onTap(i),
+            onTap: () => onTap(globalIdx),
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
                 color: selected ? const Color(0xFF4F6EF7).withOpacity(0.18) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
@@ -264,13 +281,13 @@ class _BottomNav extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(items[i].icon, color: selected ? const Color(0xFF4F6EF7) : const Color(0xFF8A9BB5), size: 22),
+                  Icon(bottomItems[i].icon, color: selected ? const Color(0xFF4F6EF7) : const Color(0xFF8A9BB5), size: 23),
                   const SizedBox(height: 4),
                   Text(
-                    items[i].label,
+                    bottomItems[i].label,
                     style: TextStyle(
                       color: selected ? const Color(0xFF4F6EF7) : const Color(0xFF8A9BB5),
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
                     ),
                   ),
@@ -312,10 +329,7 @@ class _AdminHomePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            "Here's what's happening today",
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-          ),
+          Text("Here's what's happening today", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
           const SizedBox(height: 24),
 
           // ── Live Stat Cards ────────────────────────────
@@ -326,7 +340,7 @@ class _AdminHomePage extends StatelessWidget {
                 icon: Icons.groups_rounded,
                 color: const Color(0xFF4F6EF7),
                 stream: FirebaseFirestore.instance.collection('students').snapshots(),
-                onTap: () => onNavigate(1),
+                onTap: () => onNavigate(1),  // → Students
               )),
               const SizedBox(width: 14),
               Expanded(child: _LiveStatCard(
@@ -334,21 +348,21 @@ class _AdminHomePage extends StatelessWidget {
                 icon: Icons.person_rounded,
                 color: const Color(0xFF22C55E),
                 stream: FirebaseFirestore.instance.collection('teachers').snapshots(),
-                onTap: () => onNavigate(5),
+                onTap: () => onNavigate(6),  // → Teachers list
               )),
             ],
           ),
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(child: _TodayClassesStatCard(onTap: () => onNavigate(2))),
+              Expanded(child: _TodayClassesStatCard(onTap: () => onNavigate(3))),  // → Classes
               const SizedBox(width: 14),
               Expanded(child: _LiveStatCard(
                 label: 'Subjects',
                 icon: Icons.menu_book_rounded,
                 color: const Color(0xFFEC4899),
                 stream: FirebaseFirestore.instance.collection('subjects').snapshots(),
-                onTap: () => onNavigate(4),
+                onTap: () => onNavigate(5),  // → Subjects
               )),
             ],
           ),
@@ -366,29 +380,30 @@ class _AdminHomePage extends StatelessWidget {
             mainAxisSpacing: 14,
             childAspectRatio: 2.2,
             children: [
+              // Pushes directly to AddTeacherPage as a new screen
               _QuickAction(
                 icon: Icons.person_add_rounded,
                 label: 'Add Teacher',
                 color: const Color(0xFF4F6EF7),
-                onTap: () => onNavigate(5),
+                onTap: () => onNavigate(7)
               ),
               _QuickAction(
                 icon: Icons.add_box_rounded,
                 label: 'Schedule Class',
                 color: const Color(0xFF22C55E),
-                onTap: () => onNavigate(3),
+                onTap: () => onNavigate(4),  // → Add Class
               ),
               _QuickAction(
                 icon: Icons.menu_book_rounded,
                 label: 'New Subject',
                 color: const Color(0xFFF59E0B),
-                onTap: () => onNavigate(4),
+                onTap: () => onNavigate(5),  // → Subjects
               ),
               _QuickAction(
                 icon: Icons.groups_rounded,
                 label: 'View Students',
                 color: const Color(0xFFEC4899),
-                onTap: () => onNavigate(1),
+                onTap: () => onNavigate(1),  // → Students
               ),
             ],
           ),
@@ -401,23 +416,20 @@ class _AdminHomePage extends StatelessWidget {
             children: [
               const Text("Today's Classes", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A1F3C))),
               GestureDetector(
-                onTap: () => onNavigate(2),
-                child: const Text(
-                  'See all →',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF4F6EF7), fontWeight: FontWeight.w600),
-                ),
+                onTap: () => onNavigate(3),  // → Classes
+                child: const Text('See all →', style: TextStyle(fontSize: 13, color: Color(0xFF4F6EF7), fontWeight: FontWeight.w600)),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          _TodayClassesFeed(onViewAll: () => onNavigate(2)),
+          _TodayClassesFeed(onViewAll: () => onNavigate(3)),  // → Classes
 
           const SizedBox(height: 28),
 
           // ── At-Risk Students Alert ─────────────────────
           const Text('Attendance Alerts', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A1F3C))),
           const SizedBox(height: 14),
-          _AttendanceAlerts(onNavigate: () => onNavigate(1)),
+          _AttendanceAlerts(onNavigate: () => onNavigate(1)),  // → Students
 
           const SizedBox(height: 20),
         ],
@@ -426,7 +438,7 @@ class _AdminHomePage extends StatelessWidget {
   }
 }
 
-// ─── Live Stat Card (streams Firestore count) ─────────────
+// ─── Live Stat Card ───────────────────────────────────────
 class _LiveStatCard extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -461,10 +473,7 @@ class _LiveStatCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      count,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A1F3C)),
-                    ),
+                    Text(count, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A1F3C))),
                     Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   ],
                 ),
@@ -562,10 +571,7 @@ class _TodayClassesFeed extends StatelessWidget {
         if (docs.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: Row(
               children: [
                 Icon(Icons.event_busy_rounded, color: Colors.grey.shade300, size: 32),
@@ -576,14 +582,12 @@ class _TodayClassesFeed extends StatelessWidget {
           );
         }
 
-        // Sort by date
         docs = [...docs]..sort((a, b) {
           final aDate = ((a.data() as Map)['date'] as Timestamp).toDate();
           final bDate = ((b.data() as Map)['date'] as Timestamp).toDate();
           return aDate.compareTo(bDate);
         });
 
-        // Show max 3, with a "see all" hint
         final preview = docs.take(3).toList();
 
         return Column(
@@ -615,14 +619,14 @@ class _TodayClassesFeed extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: stateColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      decoration: BoxDecoration(color: stateColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                       child: Icon(
-                        state == 'ongoing' ? Icons.radio_button_checked : state == 'scheduled' ? Icons.schedule_rounded : Icons.check_circle_rounded,
-                        color: stateColor,
-                        size: 18,
+                        state == 'ongoing'
+                            ? Icons.radio_button_checked
+                            : state == 'scheduled'
+                                ? Icons.schedule_rounded
+                                : Icons.check_circle_rounded,
+                        color: stateColor, size: 18,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -630,10 +634,7 @@ class _TodayClassesFeed extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            data['subject'] ?? '—',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1A1F3C)),
-                          ),
+                          Text(data['subject'] ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1A1F3C))),
                           const SizedBox(height: 2),
                           Text(
                             '${DateFormat('HH:mm').format(classStart)}  •  Group: ${data['groupid'] ?? '—'}',
@@ -647,20 +648,14 @@ class _TodayClassesFeed extends StatelessWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: stateColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          decoration: BoxDecoration(color: stateColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                           child: Text(
                             state[0].toUpperCase() + state.substring(1),
                             style: TextStyle(color: stateColor, fontWeight: FontWeight.bold, fontSize: 11),
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          '$attendedCount present',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-                        ),
+                        Text('$attendedCount present', style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
                       ],
                     ),
                   ],
@@ -710,11 +705,7 @@ class _AttendanceAlerts extends StatelessWidget {
       }).length;
       final pct = (attended / total) * 100;
       if (pct < 75) {
-        atRisk.add({
-          'name': studentDoc['name'] ?? '—',
-          'pct': pct,
-          'id': studentDoc.id,
-        });
+        atRisk.add({'name': studentDoc['name'] ?? '—', 'pct': pct, 'id': studentDoc.id});
       }
     }
 
@@ -733,10 +724,7 @@ class _AttendanceAlerts extends StatelessWidget {
       future: _fetchAtRisk(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: Padding(
-            padding: EdgeInsets.all(16),
-            child: CircularProgressIndicator(),
-          ));
+          return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
         }
 
         final atRisk = snapshot.data!;
@@ -807,10 +795,8 @@ class _AttendanceAlerts extends StatelessWidget {
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: color.withOpacity(0.12),
-                        child: Text(
-                          (s['name'] as String)[0].toUpperCase(),
-                          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
+                        child: Text((s['name'] as String)[0].toUpperCase(),
+                            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -832,10 +818,8 @@ class _AttendanceAlerts extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        '${pct.toStringAsFixed(0)}%',
-                        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
+                      Text('${pct.toStringAsFixed(0)}%',
+                          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
                     ],
                   ),
                 ),

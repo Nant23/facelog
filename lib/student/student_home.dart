@@ -165,7 +165,7 @@ class _StudentHomeState extends State<StudentHome>
                     borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
-                          color: const Color(0xFF1A1F3C).withOpacity(0.3),
+                          color: const Color(0xFF1A1F3C).withValues(alpha: 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8)),
                     ],
@@ -185,7 +185,7 @@ class _StudentHomeState extends State<StudentHome>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.18),
+                              color: color.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(status,
@@ -266,7 +266,7 @@ class _StudentHomeState extends State<StudentHome>
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.04), blurRadius: 8)
+                      color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
                 ],
               ),
               child: TabBar(

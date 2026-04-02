@@ -19,7 +19,6 @@ class _AdminTeachersPageState extends State<AdminTeachersPage> {
     super.dispose();
   }
 
-
   void _openAddTeacher() {
     Navigator.push(
       context,
@@ -42,7 +41,7 @@ class _AdminTeachersPageState extends State<AdminTeachersPage> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Remove Teacher'),
-        content: Text('Remove "$name" from the system? This will not delete their login account.'),
+        content: Text('Remove "$name" from the system? Their login account will also be deactivated.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
@@ -52,17 +51,36 @@ class _AdminTeachersPageState extends State<AdminTeachersPage> {
         ],
       ),
     );
+
     if (confirm == true) {
-      await FirebaseFirestore.instance.collection('teachers').doc(docId).delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$name" removed'),
-            backgroundColor: const Color(0xFFEF4444),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+      try {
+        // Delete from 'teachers' collection
+        await FirebaseFirestore.instance.collection('teachers').doc(docId).delete();
+
+        // Delete from 'users' collection (docId is the uid)
+        await FirebaseFirestore.instance.collection('users').doc(docId).delete();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"$name" removed'),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to remove "$name": $e'),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
       }
     }
   }

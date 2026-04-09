@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'teacher_home.dart';
 import 'teacher_classes_page.dart';
 import 'teacher_reports_page.dart';
+import 'teacher_analytics_page.dart';
 import 'teacher_profile_page.dart';
 
 class TeacherMainPage extends StatefulWidget {
@@ -18,6 +19,7 @@ class _TeacherMainPageState extends State<TeacherMainPage> {
     TeacherDashboardPage(),
     TeacherClassesPage(),
     TeacherReportsPage(),
+    TeacherAnalyticsPage(),
     TeacherProfilePage(),
   ];
 
@@ -25,6 +27,7 @@ class _TeacherMainPageState extends State<TeacherMainPage> {
     _NavItem(icon: Icons.dashboard_rounded, label: 'Home'),
     _NavItem(icon: Icons.class_rounded, label: 'Classes'),
     _NavItem(icon: Icons.bar_chart_rounded, label: 'Reports'),
+    _NavItem(icon: Icons.analytics_rounded, label: 'Analytics'),
     _NavItem(icon: Icons.person_rounded, label: 'Profile'),
   ];
 

@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:facelog/signup_page.dart';
 import 'package:facelog/student/student_main_page.dart';
 import 'package:facelog/teacher/teacher_main_page.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +21,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
-  bool _isGoogleLoading = false;
+
 
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -67,39 +66,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> signInWithGoogle() async {
-    setState(() => _isGoogleLoading = true);
-    try {
-      final provider = GoogleAuthProvider();
-      final userCredential = await FirebaseAuth.instance.signInWithProvider(provider);
-      final user = userCredential.user;
-      if (user == null) throw Exception("Google login failed");
-
-      final token = await FirebaseMessaging.instance.getToken();
-      final userRef = FirebaseFirestore.instance.collection("users").doc(user.uid);
-      final userDoc = await userRef.get();
-
-      if (!userDoc.exists) {
-        await userRef.set({
-          "email": user.email,
-          "name": user.displayName,
-          "role": "student",
-          "fcmToken": token,
-          "createdAt": FieldValue.serverTimestamp(),
-        });
-      } else {
-        await userRef.update({"fcmToken": token});
-      }
-
-      final updatedDoc = await userRef.get();
-      final role = updatedDoc.get("role");
-      _navigateToRolePage(role);
-    } catch (e) {
-      _showSnack("Google sign-in failed", isError: true);
-    } finally {
-      if (mounted) setState(() => _isGoogleLoading = false);
-    }
-  }
 
   void _navigateToRolePage(String role) {
     if (role == "student") {
@@ -172,7 +138,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Smart Attendance System',
+                      'Facial Attendance System',
                       style: TextStyle(color: Color(0xFF8A9BB5), fontSize: 14),
                     ),
                   ],
@@ -188,7 +154,7 @@ class _LoginPageState extends State<LoginPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Welcome back',
+                        'Welcome',
                         style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A1F3C)),
                       ),
                       const SizedBox(height: 4),
@@ -275,70 +241,11 @@ class _LoginPageState extends State<LoginPage> {
 
                       const SizedBox(height: 14),
 
-                      // Divider
-                      Row(
-                        children: [
-                          Expanded(child: Divider(color: Colors.grey.shade300)),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('or', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-                          ),
-                          Expanded(child: Divider(color: Colors.grey.shade300)),
-                        ],
-                      ),
 
-                      const SizedBox(height: 14),
-
-                      // Google Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton(
-                          onPressed: _isGoogleLoading ? null : signInWithGoogle,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1A1F3C),
-                            side: BorderSide(color: Colors.grey.shade300),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            backgroundColor: Colors.white,
-                          ),
-                          child: _isGoogleLoading
-                              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Image.network(
-                                      'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                                      width: 20,
-                                      height: 20,
-                                      errorBuilder: (_, __, ___) => const Icon(Icons.login, size: 20),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    const Text('Continue with Google', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                                  ],
-                                ),
-                        ),
-                      ),
-
+                      
                       const SizedBox(height: 24),
 
-                      // Sign up link
-                      Center(
-                        child: GestureDetector(
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpPage())),
-                          child: RichText(
-                            text: const TextSpan(
-                              text: "Don't have an account? ",
-                              style: TextStyle(color: Color(0xFF8A9BB5), fontSize: 14),
-                              children: [
-                                TextSpan(
-                                  text: 'Sign up',
-                                  style: TextStyle(color: Color(0xFF4F6EF7), fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+
                     ],
                   ),
                 ),

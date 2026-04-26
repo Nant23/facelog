@@ -235,6 +235,20 @@ class _TeacherAnalyticsPageState extends State<TeacherAnalyticsPage>
               ? _buildEmpty()
               : Column(
                   children: [
+                    Container(
+                      color: const Color(0xFF1A1F3C),
+                      padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+                      child: const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Analytics',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
                     _buildHeader(),
                     _buildTabBar(),
                     Expanded(

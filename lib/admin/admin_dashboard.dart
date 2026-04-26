@@ -73,12 +73,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              //padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF4F6EF7),
+                color: const Color.fromARGB(255, 255, 255, 255),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 20),
+              child: Image.asset(
+                'assets/images/facelog_logo.png',
+                fit: BoxFit.fill,
+                width: 30,
+                height: 30,
+              )
             ),
             const SizedBox(width: 10),
             const Text(
@@ -142,9 +147,17 @@ class _AppDrawer extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 64, height: 64,
-                  decoration: BoxDecoration(color: const Color(0xFF4F6EF7), borderRadius: BorderRadius.circular(16)),
-                  child: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 34),
+                  //padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 255, 255, 255),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Image.asset(
+                    'assets/images/facelog_logo.png',
+                    fit: BoxFit.fill,
+                    width: 50,
+                    height: 50,
+                  )
                 ),
                 const SizedBox(height: 12),
                 const Text('Admin Panel', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
@@ -308,9 +321,9 @@ class _AdminHomePage extends StatelessWidget {
 
   String _greeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning, Admin 👋';
-    if (hour < 17) return 'Good afternoon, Admin 👋';
-    return 'Good evening, Admin 👋';
+    if (hour < 12) return 'Good morning, Admin';
+    if (hour < 17) return 'Good afternoon, Admin';
+    return 'Good evening, Admin';
   }
 
   @override

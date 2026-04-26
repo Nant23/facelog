@@ -124,7 +124,7 @@ class _LoginPageState extends State<LoginPage> {
                           BoxShadow(color: const Color(0xFF4F6EF7).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8)),
                         ],
                       ),
-                      child: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 38),
+                      child:  Image.asset('assets/images/facelog_logo.png')
                     ),
                     const SizedBox(height: 20),
                     const Text(

@@ -35,12 +35,17 @@ class TeacherDashboardPage extends StatelessWidget {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              //padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF4F6EF7),
+                color: const Color(0xFFFFFFFF),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 20),
+              child: Image.asset(
+                'assets/images/facelog_logo.png',
+                fit: BoxFit.fill,
+                width: 30,
+                height: 30,
+              )
             ),
             const SizedBox(width: 10),
             const Text(
@@ -126,7 +131,7 @@ class TeacherDashboardPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '$greeting, $teacherName 👋',
+                              '$greeting, $teacherName ',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -175,11 +180,12 @@ class TeacherDashboardPage extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1A1F3C), Color(0xFF2D3561)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: const Color(0xFF2D3561),
+                        // gradient: const LinearGradient(
+                        //   colors: [Color(0xFF1A1F3C), Color(0xFF2D3561)],
+                        //   begin: Alignment.topLeft,
+                        //   end: Alignment.bottomRight,
+                        // ),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(

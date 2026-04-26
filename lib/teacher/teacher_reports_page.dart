@@ -66,7 +66,7 @@ class TeacherReportsPage extends StatelessWidget {
             child: const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Reports & Analytics',
+                'Reports',
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,

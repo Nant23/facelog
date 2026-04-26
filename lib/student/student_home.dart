@@ -67,13 +67,17 @@ class _StudentHomeState extends State<StudentHome>
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              //padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF4F6EF7),
+                color: const Color.fromARGB(255, 255, 255, 255),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.face_retouching_natural,
-                  color: Colors.white, size: 20),
+              child: Image.asset(
+                'assets/images/facelog_logo.png',
+                fit: BoxFit.fill,
+                width: 30,
+                height: 30,
+              )
             ),
             const SizedBox(width: 10),
             const Text('FaceLog',
@@ -117,7 +121,7 @@ class _StudentHomeState extends State<StudentHome>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${_greeting()}, $name 👋',
+                      '${_greeting()}, $name',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
